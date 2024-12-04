@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Twitter Following 分析工具</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <nav class="main-nav">
+        <ul>
+            <li><a href="{{ url_for('update_crawler_page') }}">更新爬虫</a></li>
+            <li><a href="{{ url_for('show_following') }}">显示Following</a></li>
+            <li><a href="{{ url_for('comparison_report') }}">比较报告</a></li>
+        </ul>
+    </nav>
+    <div class="container welcome">
+        <h1>Twitter Following 分析工具</h1>
+        <p>欢迎使用Twitter Following分析工具！</p>
+        <p>请从上方导航菜单选择您想要进行的操作。</p>
+    </div>
+</body>
+</html>

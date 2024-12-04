@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Twitter Following 分析</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <nav class="main-nav">
+        <ul>
+            <li><a href="{{ url_for('update_crawler_page') }}">更新爬虫</a></li>
+            <li><a href="{{ url_for('show_following') }}">显示Following</a></li>
+            <li><a href="{{ url_for('comparison_report') }}">比较报告</a></li>
+        </ul>
+    </nav>
+    <div class="container">
+        <div class="left-panel">
+            <h2>账号列表</h2>
+            <div class="account-list-header">
+                <label>
+                    <input type="checkbox" id="select-all-accounts"> 全选
+                </label>
+                <small class="hint">提示：选择要爬取的账号</small>
+            </div>
+            <div id="account-list">
+                {% for account in source_accounts %}
+                <div class="account-item" data-account="{{ account }}">
+                    <input type="checkbox" class="account-checkbox" value="{{ account }}">
+                    <span>{{ account }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="account-actions">
+                <input type="text" id="new-account-input" placeholder="输入新账号">
+                <button id="add-account-btn">添加</button>
+                <small class="hint">可添加新的Twitter账号</small>
+            </div>
+            <div class="crawler-actions">
+                <h3>爬虫配置</h3>
+                <input type="text" id="authorization-input" placeholder="输入 Authorization" value="{{ default_authorization }}">
+                <input type="text" id="cookie-input" placeholder="输入 Cookie" value="{{ default_cookie }}">
+                <small class="hint">默认配置已从cookies.txt加载</small>
+                <button id="trigger-crawler-btn">触发爬虫</button>
+            </div>
+            <div id="crawler-status">
+                <h3>爬虫状态</h3>
+                <div id="status-message" class="status-message"></div>
+                <div id="progress-bar" class="progress-bar">
+                    <div id="progress" class="progress"></div>
+                </div>
+                <textarea id="crawler-log" readonly rows="10" placeholder="爬虫日志将在这里显示"></textarea>
+            </div>
+        </div>
+        <div class="right-panel">
+            <h2>Following列表</h2>
+            <div id="following-list"></div>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,198 @@
+body {
+    font-family: Arial, sans-serif;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f4f4;
+}
+
+.container {
+    width: 80%;
+    margin: auto;
+    overflow: hidden;
+    padding: 20px;
+}
+
+.main-nav {
+    background-color: #333;
+    color: white;
+    padding: 10px 0;
+}
+
+.main-nav ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    justify-content: center;
+}
+
+.main-nav ul li {
+    margin: 0 15px;
+}
+
+.main-nav ul li a {
+    color: white;
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.main-nav ul li a:hover {
+    color: #4CAF50;
+}
+
+.welcome {
+    text-align: center;
+    background-color: white;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    padding: 30px;
+    margin-top: 20px;
+}
+
+.left-panel, .right-panel, .report-panel {
+    background-color: white;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.account-actions, .crawler-actions {
+    margin-top: 15px;
+}
+
+input[type="text"] {
+    width: 100%;
+    padding: 10px;
+    margin: 10px 0;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+button:hover {
+    background-color: #45a049;
+}
+
+.account-item {
+    display: flex;
+    align-items: center;
+    margin: 5px 0;
+}
+
+.account-item input[type="checkbox"] {
+    margin-right: 10px;
+}
+
+/* 表格样式 */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+table, th, td {
+    border: 1px solid #ddd;
+}
+
+th, td {
+    text-align: left;
+    padding: 12px;
+}
+
+th {
+    background-color: #f2f2f2;
+    color: #333;
+}
+
+tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+tr:hover {
+    background-color: #f5f5f5;
+}
+
+/* 报告部分样式 */
+.report-section {
+    margin-bottom: 20px;
+}
+
+.comparison-section {
+    background-color: #ffffff;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.comparison-header {
+    margin-bottom: 15px;
+}
+
+.comparison-header h2 {
+    color: #333;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #4CAF50;
+}
+
+.green-divider {
+    height: 3px;
+    background-color: #4CAF50;
+    margin: 10px 0;
+    width: 100%;
+}
+
+.report-section h2 {
+    border-bottom: 2px solid #4CAF50;
+    padding-bottom: 10px;
+    color: #333;
+}
+
+.report-section p {
+    margin: 10px 0;
+}
+
+/* 新增日志样式 */
+#crawler-log {
+    width: 50%;
+    min-height: 200px;
+    max-height: 400px;
+    overflow-y: auto;
+    resize: vertical;
+}
+
+/* 响应式设计 */
+@media screen and (max-width: 768px) {
+    .container {
+        width: 95%;
+    }
+
+    .main-nav ul {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .main-nav ul li {
+        margin: 10px 0;
+    }
+
+    table {
+        font-size: 14px;
+    }
+
+    th, td {
+        padding: 8px;
+    }
+}

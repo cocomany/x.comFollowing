@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>比较报告</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <nav class="main-nav">
+        <ul>
+            <li><a href="{{ url_for('index') }}">主页</a></li>
+            <li><a href="{{ url_for('update_crawler_page') }}">更新爬虫</a></li>
+            <li><a href="{{ url_for('show_following') }}">显示Following</a></li>
+            <li><a href="{{ url_for('comparison_report') }}">比较报告</a></li>
+        </ul>
+    </nav>
+    <div class="container">
+        <div class="report-panel">
+            <h1>Following 比较报告</h1>
+            {% if report %}
+                {% for comparison in report %}
+                <div class="comparison-section">
+                    <div class="comparison-header">
+                        <h2>账号比较：{{ comparison.account1 }} 和 {{ comparison.account2 }}</h2>
+                        <div class="green-divider"></div>
+                    </div>
+                    
+                    {% if comparison.common_followings %}
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Following账号</th>
+                                    <th>显示名称</th>
+                                    <th>简介</th>
+                                    <th>检测时间</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for following in comparison.common_followings %}
+                                <tr>
+                                    <td>{{ following.following_account }}</td>
+                                    <td>{{ following.display_name }}</td>
+                                    <td>{{ following.bio }}</td>
+                                    <td>{{ following.detected_time }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <p>{{ comparison.account1 }} 和 {{ comparison.account2 }} 没有共同关注的账号。</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            {% else %}
+                <p>暂无比较报告。请先更新爬虫数据。</p>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

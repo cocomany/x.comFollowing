@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>显示Following</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <nav class="main-nav">
+        <ul>
+            <li><a href="{{ url_for('index') }}">主页</a></li>
+            <li><a href="{{ url_for('update_crawler_page') }}">更新爬虫</a></li>
+            <li><a href="{{ url_for('show_following') }}">显示Following</a></li>
+            <li><a href="{{ url_for('comparison_report') }}">比较报告</a></li>
+        </ul>
+    </nav>
+    <div class="container">
+        <div class="left-panel">
+            <h2>账号列表</h2>
+            <div id="account-list">
+                {% for account in source_accounts %}
+                <div class="account-item" data-account="{{ account }}">
+                    <input type="checkbox" class="account-checkbox" value="{{ account }}">
+                    <span>{{ account }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            <button id="show-following-btn">显示Following</button>
+        </div>
+        <div class="right-panel">
+            <h2>Following列表</h2>
+            <div id="following-list"></div>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
