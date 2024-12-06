@@ -5,41 +5,103 @@
     let isEventBound = false;
 
     function bindShowFollowingEvent() {
+        // 检查当前页面是否是 Following 页面
+        const showFollowingBtn = document.getElementById('show-following-btn');
+        const followingList = document.getElementById('following-list');
+        
         // 防止重复绑定
         if (isEventBound) return;
         isEventBound = true;
 
-        // 添加全选功能
-        const selectAllCheckbox = document.getElementById('select-all-accounts');
-        if (selectAllCheckbox) {
-            selectAllCheckbox.addEventListener('change', function() {
-                const accountCheckboxes = document.querySelectorAll('.account-checkbox');
-                accountCheckboxes.forEach(checkbox => {
-                    checkbox.checked = selectAllCheckbox.checked;
-                });
+        // 添加图片浮窗功能 - 这个功能应该在所有页面都可用
+        const helpIcons = document.querySelectorAll('.help-icon');
+        helpIcons.forEach(icon => {
+            if (!icon.querySelector('.image-tooltip')) {
+                const tooltip = document.createElement('div');
+                tooltip.className = 'image-tooltip';
+                const img = document.createElement('img');
+                img.src = icon.dataset.tooltipImage;
+                img.alt = '帮助说明';
+                tooltip.appendChild(img);
+                icon.appendChild(tooltip);
+            }
+
+            icon.addEventListener('mouseenter', function() {
+                const tooltip = this.querySelector('.image-tooltip');
+                if (tooltip) {
+                    tooltip.style.display = 'block';
+                    const rect = tooltip.getBoundingClientRect();
+                    if (rect.top < 0) {
+                        tooltip.style.bottom = 'auto';
+                        tooltip.style.top = '100%';
+                    }
+                }
             });
 
-            // 监听单个复选框的变化
-            const accountCheckboxes = document.querySelectorAll('.account-checkbox');
-            accountCheckboxes.forEach(checkbox => {
-                checkbox.addEventListener('change', function() {
-                    const allChecked = Array.from(accountCheckboxes).every(cb => cb.checked);
-                    selectAllCheckbox.checked = allChecked;
-                });
+            icon.addEventListener('mouseleave', function() {
+                const tooltip = this.querySelector('.image-tooltip');
+                if (tooltip) {
+                    tooltip.style.display = 'none';
+                }
+            });
+        });
+
+        // Following页面特有的功能
+        if (showFollowingBtn && followingList) {
+            // Following页面的相关代码
+            showFollowingBtn.addEventListener('click', function() {
+                // 获取选中的账号
+                const accountCheckboxes = document.querySelectorAll('.account-checkbox');
+                const selectedAccounts = Array.from(accountCheckboxes)
+                    .filter(checkbox => checkbox.checked)
+                    .map(checkbox => checkbox.value);
+
+                console.log('选中的账号:', selectedAccounts);
+
+                if (selectedAccounts.length === 0) {
+                    followingList.innerHTML = '<p>请至少选择一个账号</p>';
+                    return;
+                }
+
+                if (selectedAccounts.length === 1) {
+                    updateFollowingList(selectedAccounts[0]);
+                } else {
+                    updateCommonFollowingList(selectedAccounts);
+                }
             });
         }
 
-        const showFollowingBtn = document.getElementById('show-following-btn');
-        const followingList = document.getElementById('following-list');
-        const accountCheckboxes = document.querySelectorAll('.account-checkbox');
+        // 爬虫页面的功能
         const triggerCrawlerBtn = document.getElementById('trigger-crawler-btn');
-        const statusMessage = document.getElementById('status-message');
-        const crawlerLog = document.getElementById('crawler-log');
-        const progressBar = document.getElementById('progress');
-
-        // 触发爬虫事件处理
         if (triggerCrawlerBtn) {
+            // 添加全选功能
+            const selectAllCheckbox = document.getElementById('select-all-accounts');
+            if (selectAllCheckbox) {
+                selectAllCheckbox.addEventListener('change', function() {
+                    const accountCheckboxes = document.querySelectorAll('.account-checkbox');
+                    accountCheckboxes.forEach(checkbox => {
+                        checkbox.checked = selectAllCheckbox.checked;
+                    });
+                });
+
+                // 监听单个复选框的变化
+                const accountCheckboxes = document.querySelectorAll('.account-checkbox');
+                accountCheckboxes.forEach(checkbox => {
+                    checkbox.addEventListener('change', function() {
+                        const allChecked = Array.from(accountCheckboxes).every(cb => cb.checked);
+                        selectAllCheckbox.checked = allChecked;
+                    });
+                });
+            }
+
+            const statusMessage = document.getElementById('status-message');
+            const crawlerLog = document.getElementById('crawler-log');
+            const progressBar = document.getElementById('progress');
+
             triggerCrawlerBtn.addEventListener('click', function() {
+                // 修改这里：每次点击时重新获取所有复选框
+                const accountCheckboxes = document.querySelectorAll('.account-checkbox');
+                
                 // 获取选中的账号
                 const selectedAccounts = Array.from(accountCheckboxes)
                     .filter(checkbox => checkbox.checked)
@@ -124,33 +186,6 @@
                     statusMessage.style.color = 'red';
                 });
             });
-        }
-
-        if (showFollowingBtn && followingList) {
-            showFollowingBtn.addEventListener('click', function() {
-                // 获取选中的账号
-                const selectedAccounts = Array.from(accountCheckboxes)
-                    .filter(checkbox => {
-                        //console.log('复选框状态:', checkbox.checked, checkbox.value);
-                        return checkbox.checked;
-                    })
-                    .map(checkbox => checkbox.value);
-
-                console.log('选中的账号:', selectedAccounts);
-
-                if (selectedAccounts.length === 0) {
-                    followingList.innerHTML = '<p>请至少选择一个账号</p>';
-                    return;
-                }
-
-                if (selectedAccounts.length === 1) {
-                    updateFollowingList(selectedAccounts[0]);
-                } else {
-                    updateCommonFollowingList(selectedAccounts);
-                }
-            });
-        } else {
-            console.error('未找到显示Following按钮或Following列表');
         }
     }
 
@@ -286,4 +321,35 @@
     } else {
         bindShowFollowingEvent();
     }
+
+    // 导出Excel的函数（放在全局作用域）
+    window.downloadExcel = function() {
+        fetch(downloadUrl, {
+            method: 'GET',
+            credentials: 'same-origin'
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.blob();
+        })
+        .then(blob => {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = `multiple_followed_analysis_${new Date().toISOString().split('T')[0]}.xlsx`;
+            
+            document.body.appendChild(a);
+            a.click();
+            
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        })
+        .catch(error => {
+            console.error('下载失败:', error);
+            alert('下载失败，请重试');
+        });
+    };
 })();

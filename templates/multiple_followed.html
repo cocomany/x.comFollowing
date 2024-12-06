@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>多重关注分析</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</head>
+<body>
+    <nav class="main-nav">
+        <ul>
+            <li><a href="{{ url_for('index') }}">主页</a></li>
+            <li><a href="{{ url_for('update_crawler_page') }}">更新爬虫</a></li>
+            <li><a href="{{ url_for('show_following') }}">显示Following</a></li>
+            <li><a href="{{ url_for('multiple_followed') }}">多重关注分析</a></li>
+        </ul>
+    </nav>
+    <div class="container">
+        <div class="report-panel">
+            <h1>多重关注账号分析</h1>
+            
+            <form method="get" class="mb-4">
+                <div class="form-group">
+                    <label for="days">选择时间范围：</label>
+                    <select name="days" id="days" style="padding: 5px; margin: 10px 0;" onchange="this.form.submit()">
+                        {% for option in days_options %}
+                        <option value="{{ option.value }}" {% if selected_days == option.value %}selected{% endif %}>
+                            {{ option.label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </form>
+
+            {% if results %}
+                <div style="display: flex; justify-content: flex-end; margin-bottom: 15px;">
+                    <button onclick="downloadExcel()" class="export-btn">导出Excel</button>
+                </div>
+
+                <script>
+                    // 设置下载URL
+                    var downloadUrl = "{{ url_for('export_multiple_followed', days=selected_days) }}";
+                </script>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Following Account</th>
+                            <th>被关注次数</th>
+                            <th>关注该账号的Source Accounts</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for result in results %}
+                        <tr>
+                            <td>
+                                <a href="https://x.com/{{ result[0] }}" target="_blank">
+                                    {{ result[0] }}
+                                </a>
+                            </td>
+                            <td>{{ result[1] }}</td>
+                            <td>
+                                <ul style="list-style: none; padding: 0; margin: 0;">
+                                    {% for source in result[2] %}
+                                    <li>
+                                        <a href="https://x.com/{{ source }}/following" target="_blank">
+                                            {{ source }}
+                                        </a>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p>在选定的时间范围内没有找到被多个账号关注的账号。</p>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html> 

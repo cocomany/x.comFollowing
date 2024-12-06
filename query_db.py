@@ -178,6 +178,50 @@ def generate_comparison_report():
         if conn:
             conn.close()
 
+def get_multiple_followed_accounts(days_ago=2):
+    """
+    获取在指定日期之后被多个source_account关注的following_account
+    """
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    db_path = os.path.join(current_dir, 'twitter_following.db')
+    
+    try:
+        conn = sqlite3.connect(db_path)
+        cur = conn.cursor()
+        
+        query = """
+            WITH following_counts AS (
+                SELECT following_account, 
+                       COUNT(DISTINCT source_account) as follower_count,
+                       GROUP_CONCAT(DISTINCT source_account) as source_accounts
+                FROM following
+                WHERE datetime(detected_time) >= datetime('now', '-' || ? || ' days')
+                GROUP BY following_account
+                HAVING COUNT(DISTINCT source_account) > 1
+            )
+            SELECT following_account, follower_count, source_accounts
+            FROM following_counts
+            ORDER BY follower_count DESC, following_account
+        """
+        
+        cur.execute(query, (days_ago,))
+        results = cur.fetchall()
+        
+        # 将GROUP_CONCAT的结果转换为列表
+        processed_results = []
+        for row in results:
+            following_account, follower_count, source_accounts_str = row
+            source_accounts = source_accounts_str.split(',') if source_accounts_str else []
+            processed_results.append((following_account, follower_count, source_accounts))
+        
+        return processed_results
+    except Exception as e:
+        print(f"Error in get_multiple_followed_accounts: {str(e)}")
+        return []
+    finally:
+        if conn:
+            conn.close()
+
 if __name__ == "__main__":
     source_accounts = get_source_accounts()
     print("Source Accounts:")

@@ -119,6 +119,7 @@ class TwitterFollowingCrawler:
         self.db_conn = sqlite3.connect('twitter_following.db')
         cursor = self.db_conn.cursor()
         
+        # 原有的following表
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS following (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -131,12 +132,25 @@ class TwitterFollowingCrawler:
             UNIQUE(source_account, following_account)
         )
         ''')
+        
+        # 新增用户统计信息表
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_stats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT,
+            following_count INTEGER,
+            follower_count INTEGER,
+            detected_time DATETIME,
+            UNIQUE(username, detected_time)
+        )
+        ''')
+        
         self.db_conn.commit()
     
     def scroll_page(self):
         """滚动页面到指定高度，并增加更多等待时间"""
         current_position = self.driver.execute_script("return window.pageYOffset;")
-        self.driver.execute_script(f"window.scrollTo(0, {current_position + 1500});")
+        self.driver.execute_script(f"window.scrollTo(0, {current_position + 2500});")
         time.sleep(3)  # 增加等待时间，确保内容加载
         
     def parse_following_list(self, html: str) -> List[tuple]:
@@ -150,33 +164,57 @@ class TwitterFollowingCrawler:
             logging.warning("未找到Following Timeline容器")
             return []
         
-        user_cells = timeline_div.find_all('div', attrs={'data-testid': 'cellInnerDiv'})
-        logging.info(f"找到 {len(user_cells)} 个用户单元格")
+        user_cells = timeline_div.find_all('button', attrs={'data-testid': 'UserCell'})
+        logging.info(f"找到 {len(user_cells)} 个following用户")
         
         for index, cell in enumerate(user_cells):
             try:
-                follow_button = cell.find('button', attrs={'aria-label': lambda x: x and 'Follow @' in x})
-                if not follow_button:
-                    continue
+                # 查找"Click to Follow"提示文本 - 使用更精确的选择器
+                follow_hint_div = cell.find('div', attrs={
+                    'dir': 'auto',
+                    'style': 'display: none;',
+                    'id': lambda x: x and x.startswith('id__')  # 确保是带有id__前缀的div
+                })
+                
+                if follow_hint_div and 'Click to Follow' in follow_hint_div.text:
+                    # 从"Click to Follow xxx"中提取用户名
+                    username = '@' + follow_hint_div.text.replace('Click to Follow ', '')
+                    # logging.info(f"--原始提示文本: {follow_hint_div.text}")
+                    # logging.info(f"--找到账号 {index+1}: {username}")
                     
-                username = follow_button.get('aria-label', '').replace('Follow @', '@')
-                
-                display_name_div = cell.find('div', attrs={'style': lambda x: x and 'color: rgb(231, 233, 234)' in x})
-                display_name = display_name_div.text.strip() if display_name_div else username.replace('@', '')
-                
-                bio_div = cell.find('div', class_='r-1jeg54m')
-                bio = bio_div.text.strip() if bio_div else ""
-                
-                if username not in seen_accounts:
-                    seen_accounts.add(username)
-                    account_info = {
-                        "username": username,
-                        "display_name": display_name,
-                        "bio": bio
-                    }
-                    following_accounts.append((account_info, index))
-                    logging.info(f"找到账号 {index+1}: {username} ({display_name})")
+                    # 找到用户信息区域获取其他信息
+                    user_info_div = cell.find('div', class_='r-1iusvr4')
+                    if not user_info_div:
+                        continue
                     
+                    # 获取显示名称 - 使用更精确的选择器
+                    display_name_div = user_info_div.find('div', attrs={
+                        'class': lambda x: x and 'r-bcqeeo' in x and 'r-qvutc0' in x and 'r-b88u0q' in x
+                    })
+                    display_name = display_name_div.get_text().strip() if display_name_div else username.replace('@', '')
+                    
+                    # 打印更多调试信息
+                    logging.info(f"--找到账号 {index+1}: : {username}, {display_name}")
+                    
+                    # 获取bio
+                    bio_div = cell.find('div', class_='r-1jeg54m')
+                    bio = bio_div.get_text().strip() if bio_div else ""
+                    
+                    if username and username not in seen_accounts:
+                        seen_accounts.add(username)
+                        account_info = {
+                            "username": username,
+                            "display_name": display_name,
+                            "bio": bio
+                        }
+                        following_accounts.append((account_info, index))
+                        
+                else:
+                    # 如果没有找到Click to Follow提示，打印调试信息
+                    logging.warning(f"第 {index+1} 个用户单元格未找到有效的Follow提示文本")
+                    if follow_hint_div:
+                        logging.warning(f"--找到的提示文本: {follow_hint_div.text}")
+                
             except Exception as e:
                 logging.error(f"解析元素时出错: {str(e)}")
                 continue
@@ -228,53 +266,174 @@ class TwitterFollowingCrawler:
                 
         self.db_conn.commit()
     
+    def get_user_stats(self, username: str) -> dict:
+        """获取用户主页的统计数据"""
+        url = f"https://x.com/{username}"
+        self.driver.get(url)
+        time.sleep(5)  # 增加等待时间
+        
+        try:
+            # 等待用户统计信息加载
+            stats_container = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, '[data-testid="primaryColumn"]'))
+            )
+            
+            # 保存主页截图
+            account_screenshot_dir = os.path.join(self.screenshots_dir, username)
+            os.makedirs(account_screenshot_dir, exist_ok=True)
+            current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+            
+            profile_screenshot_path = os.path.join(
+                account_screenshot_dir,
+                f"{current_time}_profile_{username}.png"
+            )
+            self.driver.save_screenshot(profile_screenshot_path)
+            logging.info(f"已保存用户 {username} 的主页截图")
+            
+            try:
+                # 使用不区分大小写的XPath来查找链接
+                xpath_query = (
+                    f"//a[contains(translate(@href, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "
+                    f"'/{username.lower()}/following') or "
+                    f"contains(translate(@href, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "
+                    f"'/{username.lower()}/followers') or "
+                    f"contains(translate(@href, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "
+                    f"'/{username.lower()}/verified_followers')]"
+                )
+                
+                stats_links = WebDriverWait(self.driver, 10).until(
+                    EC.presence_of_all_elements_located((By.XPATH, xpath_query))
+                )
+                
+                # 提取数字的辅助函数
+                def parse_count(text):
+                    if not text:
+                        return 0
+                    text = text.strip().split()[0].replace(',', '')
+                    if 'K' in text:
+                        return int(float(text.replace('K', '')) * 1000)
+                    if 'M' in text:
+                        return int(float(text.replace('M', '')) * 1000000)
+                    return int(text) if text.isdigit() else 0
+                
+                following_count = 0
+                follower_count = 0
+                
+                for link in stats_links:
+                    href = link.get_attribute('href').lower()
+                    # 获取链接中的第一个数字文本
+                    spans = link.find_elements(By.CSS_SELECTOR, 'span')
+                    count_text = ''
+                    for span in spans:
+                        text = span.text.strip()
+                        if text and (text.replace(',', '').replace('.', '').replace('K', '').replace('M', '').isdigit() or 
+                                   any(char in text for char in ['K', 'M'])):
+                            count_text = text
+                            break
+                    
+                    if f'/{username.lower()}/following' in href:
+                        following_count = parse_count(count_text)
+                    elif f'/{username.lower()}/followers' in href or f'/{username.lower()}/verified_followers' in href:
+                        follower_count = parse_count(count_text)
+                
+                if following_count == 0 and follower_count == 0:
+                    logging.warning(f"未能找到用户 {username} 的统计信息")
+                    return None
+                    
+                logging.info(f"成功获取用户 {username} 的统计信息: Following: {following_count}, Followers: {follower_count}")
+                return {
+                    'following_count': following_count,
+                    'follower_count': follower_count
+                }
+                
+            except Exception as e:
+                # 保存错误信息和截图
+                error_screenshot = os.path.join(
+                    account_screenshot_dir,
+                    f"{current_time}_profile_error_{username}.png"
+                )
+                self.driver.save_screenshot(error_screenshot)
+                
+                error_html = os.path.join(
+                    account_screenshot_dir,
+                    f"{current_time}_profile_error_{username}.html"
+                )
+                with open(error_html, "w", encoding="utf-8") as f:
+                    f.write(self.driver.page_source)
+                    
+                logging.error(f"获取用户 {username} 统计信息失败: {str(e)}")
+                return None
+                
+        except Exception as e:
+            logging.error(f"获取用户 {username} 统计信息失败: {str(e)}")
+            return None
+    
+    def save_user_stats(self, username: str, stats: dict):
+        """保存用户统计信息到数据库"""
+        if not stats:
+            return
+        
+        cursor = self.db_conn.cursor()
+        current_time = datetime.now()
+        
+        try:
+            cursor.execute('''
+            INSERT INTO user_stats (
+                username,
+                following_count,
+                follower_count,
+                detected_time
+            )
+            VALUES (?, ?, ?, ?)
+            ''', (
+                username,
+                stats['following_count'],
+                stats['follower_count'],
+                current_time
+            ))
+            self.db_conn.commit()
+            logging.info(f"已保存用户 {username} 的统计信息")
+        except sqlite3.Error as e:
+            logging.error(f"保存用户统计信息失败: {str(e)}")
+    
     def run(self):
         """运行爬虫程序"""
         try:
             self.init_driver()
             self.init_db()
             
-            url = f"https://x.com/{self.source_account}/following"
+            url = f"https://x.com/{self.source_account.lower()}/following"
             self.driver.get(url)
             
-            account_screenshot_dir = os.path.join(self.screenshots_dir, self.source_account)
-            os.makedirs(account_screenshot_dir, exist_ok=True)
-            current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+            # 增加等待时间，确保页面完全加载
+            time.sleep(5)  # 增加初始等待时间
             
             try:
+                # 等待Following列表加载
                 WebDriverWait(self.driver, 30).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, '[data-testid="primaryColumn"]'))
+                    EC.presence_of_element_located((By.CSS_SELECTOR, '[data-testid="UserCell"]'))
                 )
                 
+                # 确保至少有一个用户单元格完全加载
                 WebDriverWait(self.driver, 20).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-testid="cellInnerDiv"]'))
+                    lambda driver: len(driver.find_elements(By.CSS_SELECTOR, '[data-testid="UserCell"]')) > 0
                 )
                 
-                screenshot_path = os.path.join(
-                    account_screenshot_dir, 
-                    f"{current_time}_initial_{self.source_account}.png"
-                )
-                self.driver.save_screenshot(screenshot_path)
+                # 清除可能的缓存
+                self.driver.execute_script("window.localStorage.clear();")
+                self.driver.execute_script("window.sessionStorage.clear();")
                 
-                logging.info(f"开始为 {self.source_account} 滚动页面...")
-                for i in range(self.scroll_count):
-                    logging.info(f"第 {i+1} 次滚动")
-                    self.scroll_page()
-                    
-                    screenshot_path = os.path.join(
-                        account_screenshot_dir,
-                        f"{current_time}_scroll_{i+1}_{self.source_account}.png"
-                    )
-                    self.driver.save_screenshot(screenshot_path)
-                
+                # 重新获取页面内容
+                logging.info(f"为 {self.source_account} 找到以下关注账号：")
                 following_accounts = self.parse_following_list(self.driver.page_source)
-                logging.info(f"\n为 {self.source_account} 找到 {len(following_accounts)} 个关注账号:")
-                for account_info, _ in following_accounts:
-                    logging.info(f"  {account_info['display_name']} ({account_info['username']})")
-                    if account_info['bio']:
-                        logging.info(f"    Bio: {account_info['bio']}")
+                
+                # for account_info, _ in following_accounts:
+                #     logging.info(f"  {account_info['display_name']} ({account_info['username']})")
+                #     if account_info['bio']:
+                #         logging.info(f"    Bio: {account_info['bio']}")
                 
                 self.save_to_db(following_accounts)
+                logging.info(f"已保存  {self.source_account} 的 {len(following_accounts)} 个following账号")
                 
             except Exception as e:
                 logging.error(f"抓取账号 {self.source_account} 时发生错误: {str(e)}")

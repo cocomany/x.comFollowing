@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, Response
+from flask import Flask, render_template, request, jsonify, Response, send_file
 import sqlite3
 import os
 import json
@@ -8,11 +8,28 @@ import query_db
 import logging
 import queue
 import threading
+from query_db import get_multiple_followed_accounts
+import pandas as pd
+from io import BytesIO
+from datetime import datetime, timedelta
+
+# 在文件开头添加或修改日志配置
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 
 app = Flask(__name__)
 
 # 创建一个线程安全的日志队列
 log_queue = queue.Queue()
+
+def get_db_connection():
+    """创建数据库连接"""
+    conn = sqlite3.connect('twitter_following.db')
+    conn.row_factory = sqlite3.Row
+    return conn
 
 def read_default_config():
     try:
@@ -47,6 +64,7 @@ def show_following():
 def comparison_report():
     report = query_db.generate_comparison_report()
     return render_template('comparison_report.html', report=report)
+
 
 @app.route('/get_following_list', methods=['POST'])
 def get_following_list():
@@ -152,6 +170,93 @@ def trigger_crawler():
             'status': 'error',
             'message': str(e)
         })
+
+@app.route('/multiple_followed')
+def multiple_followed():
+    days_options = [
+        {'value': 1, 'label': '最近1天'},
+        {'value': 2, 'label': '最近2天'},
+        {'value': 7, 'label': '最近7天'},
+        {'value': 30, 'label': '最近30天'},
+        {'value': 60, 'label': '最近60天'}
+    ]
+    
+    days = request.args.get('days', '2')
+    try:
+        days = int(days)
+    except ValueError:
+        days = 2
+    
+    results = get_multiple_followed_accounts(days)
+    
+    return render_template(
+        'multiple_followed.html',
+        results=results,
+        days_options=days_options,
+        selected_days=days
+    )
+
+@app.route('/export_multiple_followed')
+def export_multiple_followed():
+    try:
+        logging.info("开始导出Excel文件...")
+        days = request.args.get('days', '2')
+        days_int = int(days)
+        
+        # 直接使用 multiple_followed 函数中的逻辑获取数据
+        results = get_multiple_followed_accounts(days_int)
+        
+        if not results:
+            logging.warning("没有找到可导出的数据")
+            return "No data available for export", 404
+        
+        logging.info(f"找到 {len(results)} 条记录，开始创建Excel文件...")
+        
+        # 创建DataFrame，将source accounts列表转换为逗号分隔的字符串
+        df = pd.DataFrame(
+            [(row[0], row[1], ', '.join(row[2])) for row in results],
+            columns=['Following Account', '被关注次数', '关注该账号的Source Accounts']
+        )
+        
+        # 创建Excel文件
+        output = BytesIO()
+        logging.info("正在写入Excel文件...")
+        
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            df.to_excel(writer, sheet_name='多重关注分析', index=False)
+            
+            # 获取工作表对象
+            worksheet = writer.sheets['多重关注分析']
+            
+            # 调整列宽
+            worksheet.set_column('A:A', 20)  # Following Account
+            worksheet.set_column('B:B', 15)  # 被关注次数
+            worksheet.set_column('C:C', 40)  # Source Accounts
+        
+        output.seek(0)
+        
+        # 生成文件名
+        filename = f'multiple_followed_analysis_{datetime.now().strftime("%Y%m%d")}.xlsx'
+        logging.info(f"Excel文件创建完成: {filename}")
+        
+        response = send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=filename
+        )
+        
+        # 添加响应头，禁用缓存
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        
+        logging.info("文件导出成功")
+        return response
+        
+    except Exception as e:
+        logging.error(f"导出Excel文件时发生错误: {str(e)}")
+        return f"Error exporting data: {str(e)}", 500
 
 if __name__ == '__main__':
     app.run(debug=True)
