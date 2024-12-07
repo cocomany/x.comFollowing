@@ -202,7 +202,7 @@
                     // 添加到列表中
                     accountList.appendChild(newAccountDiv);
 
-                    // 为新添加的复选框添加事件监听
+                    // 为新加的复选框添加事件监听
                     const newCheckbox = newAccountDiv.querySelector('.account-checkbox');
                     newCheckbox.addEventListener('change', function() {
                         // 更新全选状态
@@ -414,6 +414,8 @@
                     accountSection.className = 'account-section';
                     
                     const accountHeader = document.createElement('h3');
+                    accountHeader.className = 'account-following-title';
+                    accountHeader.style.color = '#1B5E20';
                     accountHeader.textContent = `${account} 的新增Following`;
                     accountSection.appendChild(accountHeader);
                     

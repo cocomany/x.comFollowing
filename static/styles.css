@@ -50,6 +50,10 @@ body {
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     padding: 30px;
     margin-top: 20px;
+    display: block;
+    width: 90%;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .left-panel {
@@ -480,4 +484,21 @@ tr:hover {
 
 .status-message.status-changed {
     animation: statusChange 0.5s ease;
+}
+
+.section-title {
+    color: #2196F3;  /* 使用蓝色作为标题颜色 */
+    border-bottom: 2px solid #2196F3;
+    padding-bottom: 8px;
+    margin-bottom: 15px;
+}
+
+/* 为新增Following的账号名添加样式 */
+.account-following-title {
+    color: #1B5E20;  /* 修改为深绿色字体 */
+    font-weight: bold;
+    font-size: 1.1em;
+    margin: 15px 0 10px 0;
+    padding-left: 10px;
+    border-left: 3px solid #E91E63;  /* 保持原来的粉色边框 */
 }
