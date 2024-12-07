@@ -27,10 +27,14 @@
                     <option value="60">最近60天</option>
                 </select>
             </div>
+            <div class="select-all-section">
+                <input type="checkbox" id="select-all-accounts" checked>
+                <label for="select-all-accounts">全选</label>
+            </div>
             <div id="account-list">
                 {% for account in source_accounts %}
                 <div class="account-item" data-account="{{ account }}">
-                    <input type="checkbox" class="account-checkbox" value="{{ account }}">
+                    <input type="checkbox" class="account-checkbox" value="{{ account }}" checked>
                     <span>{{ account }}</span>
                 </div>
                 {% endfor %}

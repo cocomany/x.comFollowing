@@ -36,6 +36,10 @@
                 <button id="add-account-btn">添加</button>
                 <small class="hint">可添加多个Twitter账号，用逗号分隔</small>
             </div>
+            
+            
+        </div>
+        <div id="right-panel"></div>
             <div class="crawler-actions">
                 <h3>爬虫配置</h3>
                 <input type="text" id="authorization-input" placeholder="输入 Authorization" value="{{ default_authorization }}">
@@ -43,6 +47,7 @@
                 <small class="hint">默认配置已从cookies.txt加载</small>
                 <button id="trigger-crawler-btn">触发爬虫</button>
             </div>
+        
             <div id="crawler-status">
                 <h3>爬虫状态</h3>
                 <div id="status-message" class="status-message"></div>

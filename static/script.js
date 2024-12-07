@@ -9,18 +9,26 @@
         if (isEventBound) return;
         isEventBound = true;
 
-        // 添加全选功能
+        // 获取所有DOM元素
         const selectAllCheckbox = document.getElementById('select-all-accounts');
+        const accountCheckboxes = document.querySelectorAll('.account-checkbox');
+        const showFollowingBtn = document.getElementById('show-following-btn');
+        const followingList = document.getElementById('following-list');
+        const triggerCrawlerBtn = document.getElementById('trigger-crawler-btn');
+        const statusMessage = document.getElementById('status-message');
+        const crawlerLog = document.getElementById('crawler-log');
+        const progressBar = document.getElementById('progress');
+
+        // 添加全选功能
         if (selectAllCheckbox) {
+            // 监听全选复选框的变化
             selectAllCheckbox.addEventListener('change', function() {
-                const accountCheckboxes = document.querySelectorAll('.account-checkbox');
                 accountCheckboxes.forEach(checkbox => {
                     checkbox.checked = selectAllCheckbox.checked;
                 });
             });
 
             // 监听单个复选框的变化
-            const accountCheckboxes = document.querySelectorAll('.account-checkbox');
             accountCheckboxes.forEach(checkbox => {
                 checkbox.addEventListener('change', function() {
                     const allChecked = Array.from(accountCheckboxes).every(cb => cb.checked);
@@ -29,20 +37,9 @@
             });
         }
 
-        const showFollowingBtn = document.getElementById('show-following-btn');
-        const followingList = document.getElementById('following-list');
-        const accountCheckboxes = document.querySelectorAll('.account-checkbox');
-        const triggerCrawlerBtn = document.getElementById('trigger-crawler-btn');
-        const statusMessage = document.getElementById('status-message');
-        const crawlerLog = document.getElementById('crawler-log');
-        const progressBar = document.getElementById('progress');
-
         // 触发爬虫事件处理
         if (triggerCrawlerBtn) {
             triggerCrawlerBtn.addEventListener('click', function() {
-                // 修改这里：每次点击时重新获取所有复选框
-                const accountCheckboxes = document.querySelectorAll('.account-checkbox');
-                
                 // 获取选中的账号
                 const selectedAccounts = Array.from(accountCheckboxes)
                     .filter(checkbox => checkbox.checked)
@@ -178,7 +175,7 @@
                     return;
                 }
 
-                // 检查是���已存在
+                // 检查是否已存在
                 const existingAccounts = Array.from(accountList.querySelectorAll('.account-item span'))
                     .map(span => span.textContent.trim().toLowerCase());
 
