@@ -39,7 +39,7 @@
             
             
         </div>
-        <div id="right-panel"></div>
+        <div class="right-panel">
             <div class="crawler-actions">
                 <h3>爬虫配置</h3>
                 <input type="text" id="authorization-input" placeholder="输入 Authorization" value="{{ default_authorization }}">
@@ -47,7 +47,7 @@
                 <small class="hint">默认配置已从cookies.txt加载</small>
                 <button id="trigger-crawler-btn">触发爬虫</button>
             </div>
-        
+            
             <div id="crawler-status">
                 <h3>爬虫状态</h3>
                 <div id="status-message" class="status-message"></div>
@@ -57,7 +57,6 @@
                 <textarea id="crawler-log" readonly rows="10" placeholder="爬虫日志将在这里显示"></textarea>
             </div>
         </div>
-
     </div>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
