@@ -18,6 +18,15 @@
     <div class="container">
         <div class="left-panel">
             <h2>账号列表</h2>
+            <div class="filter-section">
+                <select id="time-filter">
+                    <option value="1">最近1天</option>
+                    <option value="2" selected>最近2天</option>
+                    <option value="7">最近7天</option>
+                    <option value="30">最近30天</option>
+                    <option value="60">最近60天</option>
+                </select>
+            </div>
             <div id="account-list">
                 {% for account in source_accounts %}
                 <div class="account-item" data-account="{{ account }}">
@@ -29,8 +38,11 @@
             <button id="show-following-btn">显示Following</button>
         </div>
         <div class="right-panel">
-            <h2>Following列表</h2>
+            <h2>共同Following列表</h2>
             <div id="following-list"></div>
+            
+            <h2>各账号新增Following列表</h2>
+            <div id="new-following-list"></div>
         </div>
     </div>
     <script src="{{ url_for('static', filename='script.js') }}"></script>

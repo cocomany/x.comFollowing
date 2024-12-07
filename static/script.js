@@ -131,12 +131,8 @@
 
         if (showFollowingBtn && followingList) {
             showFollowingBtn.addEventListener('click', function() {
-                // 获取选中的账号
                 const selectedAccounts = Array.from(accountCheckboxes)
-                    .filter(checkbox => {
-                        //console.log('复选框状态:', checkbox.checked, checkbox.value);
-                        return checkbox.checked;
-                    })
+                    .filter(checkbox => checkbox.checked)
                     .map(checkbox => checkbox.value);
 
                 console.log('选中的账号:', selectedAccounts);
@@ -151,6 +147,8 @@
                 } else {
                     updateCommonFollowingList(selectedAccounts);
                 }
+                
+                updateNewFollowingLists(selectedAccounts);
             });
         } else {
             console.error('未找到显示Following按钮或Following列表');
@@ -180,7 +178,7 @@
                     return;
                 }
 
-                // 检查是否已存在
+                // 检查是���已存在
                 const existingAccounts = Array.from(accountList.querySelectorAll('.account-item span'))
                     .map(span => span.textContent.trim().toLowerCase());
 
@@ -226,18 +224,36 @@
                 }
             });
         }
+
+        const timeFilter = document.getElementById('time-filter');
+        if (timeFilter) {
+            timeFilter.addEventListener('change', function() {
+                const selectedAccounts = Array.from(accountCheckboxes)
+                    .filter(checkbox => checkbox.checked)
+                    .map(checkbox => checkbox.value);
+
+                if (selectedAccounts.length === 1) {
+                    updateFollowingList(selectedAccounts[0]);
+                } else if (selectedAccounts.length > 1) {
+                    updateCommonFollowingList(selectedAccounts);
+                }
+            });
+        }
     }
 
     // 更新Following列表的函数
     function updateFollowingList(account) {
         console.log('获取单个账号Following:', account);
+        const timeFilter = document.getElementById('time-filter').value;
+        
         fetch('/get_following_list', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                account: account
+                account: account,
+                days: parseInt(timeFilter)
             })
         })
         .then(response => {
@@ -351,6 +367,77 @@
             console.error('获取共同关注列表错误:', error);
             const followingList = document.getElementById('following-list');
             followingList.innerHTML = `<p>获取共同关注列表时发生错误: ${error.message}</p>`;
+        });
+    }
+
+    function updateNewFollowingLists(accounts) {
+        const timeFilter = document.getElementById('time-filter').value;
+        
+        fetch('/get_new_following_list', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                accounts: accounts,
+                days: parseInt(timeFilter)
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            const newFollowingList = document.getElementById('new-following-list');
+            if (data.status === 'success') {
+                newFollowingList.innerHTML = '';
+                
+                Object.entries(data.new_following_lists).forEach(([account, followings]) => {
+                    const accountSection = document.createElement('div');
+                    accountSection.className = 'account-section';
+                    
+                    const accountHeader = document.createElement('h3');
+                    accountHeader.textContent = `${account} 的新增Following`;
+                    accountSection.appendChild(accountHeader);
+                    
+                    if (followings.length === 0) {
+                        const noData = document.createElement('p');
+                        noData.textContent = '该时间范围内无新增Following';
+                        accountSection.appendChild(noData);
+                    } else {
+                        const table = document.createElement('table');
+                        table.innerHTML = `
+                            <thead>
+                                <tr>
+                                    <th>账号</th>
+                                    <th>显示名称</th>
+                                    <th>简介</th>
+                                    <th>检测时间</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        `;
+                        
+                        const tbody = table.querySelector('tbody');
+                        followings.forEach(following => {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td>${following.following_account}</td>
+                                <td>${following.display_name || '无'}</td>
+                                <td>${following.bio || '无'}</td>
+                                <td>${following.detected_time}</td>
+                            `;
+                            tbody.appendChild(row);
+                        });
+                        
+                        accountSection.appendChild(table);
+                    }
+                    
+                    newFollowingList.appendChild(accountSection);
+                });
+            }
+        })
+        .catch(error => {
+            console.error('获取新增Following列表错误:', error);
+            const newFollowingList = document.getElementById('new-following-list');
+            newFollowingList.innerHTML = `<p>获取新增Following列表时发生错误: ${error.message}</p>`;
         });
     }
 

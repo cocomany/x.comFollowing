@@ -27,26 +27,43 @@ def get_source_accounts():
         if conn:
             conn.close()
 
-def get_following_list(account):
+def get_following_list(account, days=None):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        query = """
-        SELECT 
-            following_account, 
-            display_name, 
-            bio, 
-            detected_time
-        FROM 
-            following
-        WHERE 
-            source_account = ?
-        ORDER BY 
-            detected_time DESC
-        """
-        
-        cursor.execute(query, (account,))
+        if days:
+            query = """
+            SELECT 
+                following_account, 
+                display_name, 
+                bio, 
+                detected_time
+            FROM 
+                following
+            WHERE 
+                source_account = ?
+                AND datetime(detected_time) >= datetime('now', '-' || ? || ' days')
+            ORDER BY 
+                detected_time DESC
+            """
+            cursor.execute(query, (account, days))
+        else:
+            query = """
+            SELECT 
+                following_account, 
+                display_name, 
+                bio, 
+                detected_time
+            FROM 
+                following
+            WHERE 
+                source_account = ?
+            ORDER BY 
+                detected_time DESC
+            """
+            cursor.execute(query, (account,))
+            
         followings = cursor.fetchall()
         
         result = [
@@ -294,6 +311,48 @@ def get_recent_logs(limit=5):
             logs.append(log)
         
         return logs
+    finally:
+        if conn:
+            conn.close()
+
+def get_new_following_list(account, days):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        query = """
+        SELECT 
+            following_account, 
+            display_name, 
+            bio, 
+            detected_time
+        FROM 
+            following
+        WHERE 
+            source_account = ?
+            AND datetime(detected_time) >= datetime('now', '-' || ? || ' days')
+        ORDER BY 
+            detected_time DESC
+        """
+        
+        cursor.execute(query, (account, days))
+        followings = cursor.fetchall()
+        
+        result = [
+            {
+                'following_account': row[0],
+                'display_name': row[1],
+                'bio': row[2],
+                'detected_time': row[3]
+            } for row in followings
+        ]
+        
+        return result
+    
+    except sqlite3.Error as e:
+        print(f"查询新增Following列表失败: {str(e)}")
+        return []
+    
     finally:
         if conn:
             conn.close()

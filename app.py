@@ -71,8 +71,9 @@ def comparison_report():
 def get_following_list():
     data = request.json
     account = data.get('account')
+    days = data.get('days')  # 获取天数参数
     
-    following_list = query_db.get_following_list(account)
+    following_list = query_db.get_following_list(account, days)
     
     return jsonify({
         'status': 'success',
@@ -362,6 +363,21 @@ def init_scheduler():
     scheduler = TaskScheduler.get_instance()
     if scheduler.is_enabled():
         scheduler.start()
+
+@app.route('/get_new_following_list', methods=['POST'])
+def get_new_following_list():
+    data = request.json
+    accounts = data.get('accounts', [])
+    days = data.get('days')
+    
+    result = {}
+    for account in accounts:
+        result[account] = query_db.get_new_following_list(account, days)
+    
+    return jsonify({
+        'status': 'success',
+        'new_following_lists': result
+    })
 
 if __name__ == '__main__':
     init_scheduler()  # 初始化定时任务
