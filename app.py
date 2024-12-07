@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, Response, send_file, send_from_directory
+from flask import Flask, render_template, request, jsonify, Response, send_file, send_from_directory, redirect, url_for, session
 import sqlite3
 import os
 import json
@@ -13,6 +13,8 @@ import pandas as pd
 from io import BytesIO
 from datetime import datetime, timedelta
 from task_scheduler import TaskScheduler, get_recent_logs
+from functools import wraps
+from config.auth_config import ACCESS_PASSWORD
 
 # 在文件开头添加或修改日志配置
 logging.basicConfig(
@@ -22,6 +24,31 @@ logging.basicConfig(
 )
 
 app = Flask(__name__)
+app.secret_key = os.urandom(24)  # 设置用于会话的密钥
+
+# 登录验证装饰器
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('logged_in'):
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    error = None
+    if request.method == 'POST':
+        if request.form['password'] == ACCESS_PASSWORD:
+            session['logged_in'] = True
+            return redirect(url_for('index'))
+        error = '密码错误'
+    return render_template('login.html', error=error)
+
+@app.route('/')
+@login_required
+def index():
+    return render_template('index.html')
 
 # 创建一个线程安全的日志队列
 log_queue = queue.Queue()
@@ -43,11 +70,8 @@ def read_default_config():
         print(f"读取配置文件错误: {e}")
         return '', ''
 
-@app.route('/')
-def index():
-    return render_template('index.html')
-
 @app.route('/update_crawler')
+@login_required
 def update_crawler_page():
     source_accounts = query_db.get_source_accounts()
     default_authorization, default_cookie = read_default_config()
@@ -57,17 +81,20 @@ def update_crawler_page():
                            default_cookie=default_cookie)
 
 @app.route('/show_following')
+@login_required
 def show_following():
     source_accounts = query_db.get_source_accounts()
     return render_template('show_following.html', source_accounts=source_accounts)
 
 @app.route('/comparison_report')
+@login_required
 def comparison_report():
     report = query_db.generate_comparison_report()
     return render_template('comparison_report.html', report=report)
 
 
 @app.route('/get_following_list', methods=['POST'])
+@login_required
 def get_following_list():
     data = request.json
     account = data.get('account')
@@ -81,6 +108,7 @@ def get_following_list():
     })
 
 @app.route('/get_common_following', methods=['POST'])
+@login_required
 def get_common_following():
     data = request.json
     accounts = data.get('accounts', [])
@@ -118,6 +146,7 @@ def log_stream():
     return Response(generate(), mimetype='text/event-stream')
 
 @app.route('/trigger_crawler', methods=['POST'])
+@login_required
 def trigger_crawler():
     try:
         data = request.json
@@ -174,6 +203,7 @@ def trigger_crawler():
         })
 
 @app.route('/multiple_followed')
+@login_required
 def multiple_followed():
     days_options = [
         {'value': 1, 'label': '最近1天'},
@@ -199,6 +229,7 @@ def multiple_followed():
     )
 
 @app.route('/export_multiple_followed')
+@login_required
 def export_multiple_followed():
     try:
         days = request.args.get('days', default=7, type=int)
@@ -253,6 +284,7 @@ def export_multiple_followed():
         return f"Error exporting data: {str(e)}", 500
 
 @app.route('/schedule_tasks')
+@login_required
 def schedule_tasks():
     """定时任务管理页面"""
     scheduler = TaskScheduler.get_instance()
@@ -264,6 +296,7 @@ def schedule_tasks():
                          schedule=schedule)
 
 @app.route('/toggle_schedule_task', methods=['POST'])
+@login_required
 def toggle_schedule_task():
     """切换定时任务状态"""
     try:
@@ -286,6 +319,7 @@ def toggle_schedule_task():
         })
 
 @app.route('/update_schedule', methods=['POST'])
+@login_required
 def update_schedule():
     """更新定时任务时间"""
     try:
@@ -311,6 +345,7 @@ def update_schedule():
         })
 
 @app.route('/run_task_now', methods=['POST'])
+@login_required
 def run_task_now():
     """立即执行任务"""
     try:
@@ -354,6 +389,7 @@ def init_scheduler():
         scheduler.start()
 
 @app.route('/get_new_following_list', methods=['POST'])
+@login_required
 def get_new_following_list():
     data = request.json
     accounts = data.get('accounts', [])
@@ -369,6 +405,7 @@ def get_new_following_list():
     })
 
 @app.route('/get_latest_log')
+@login_required
 def get_latest_log():
     """获取最新的任务日志"""
     try:
@@ -420,6 +457,7 @@ def get_latest_log():
         })
 
 @app.route('/save_accounts', methods=['POST'])
+@login_required
 def save_accounts():
     try:
         data = request.get_json()
@@ -433,11 +471,13 @@ def save_accounts():
         return jsonify({'status': 'error', 'message': str(e)})
 
 @app.route('/download_log/<filename>')
+@login_required
 def download_log(filename):
     """下载日志文件"""
     return send_from_directory('logs', filename, as_attachment=True)
 
 @app.route('/check_task_status')
+@login_required
 def check_task_status():
     """检查是否有任务正在运行"""
     try:
@@ -476,6 +516,7 @@ def check_task_status():
         return jsonify({'running': False, 'error': str(e)})
 
 @app.route('/reset_task_status', methods=['POST'])
+@login_required
 def reset_task_status():
     """强制重置任务状态"""
     try:
@@ -497,6 +538,7 @@ def reset_task_status():
         })
 
 @app.route('/get_task_progress')
+@login_required
 def get_task_progress():
     """获取当前任务的进度"""
     try:
@@ -551,6 +593,7 @@ def get_task_progress():
         })
 
 @app.route('/view_log/<filename>')
+@login_required
 def view_log(filename):
     """查看日志文件内容"""
     try:
@@ -575,6 +618,7 @@ def view_log(filename):
         })
 
 @app.route('/get_recent_logs')
+@login_required
 def get_recent_logs_api():
     """API接口：获取最近的日志文件列表"""
     try:
@@ -590,6 +634,7 @@ def get_recent_logs_api():
         })
 
 @app.route('/delete_accounts', methods=['POST'])
+@login_required
 def delete_accounts():
     """删除选中账号的所有数据"""
     try:
