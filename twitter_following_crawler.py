@@ -32,71 +32,121 @@ class TwitterFollowingCrawler:
         
     def init_driver(self):
         """初始化Chrome driver并加载cookie"""
+        # 设置 selenium 和 urllib3 的日志���别为 WARNING 以上
+        selenium_logger = logging.getLogger('selenium')
+        selenium_logger.setLevel(logging.WARNING)
+        urllib3_logger = logging.getLogger('urllib3')
+        urllib3_logger.setLevel(logging.WARNING)
+        
         options = webdriver.ChromeOptions()
         options.add_argument('--headless')
         options.add_argument('--disable-gpu')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
+        # SSL相关选项
+        options.add_argument('--ignore-certificate-errors')
+        options.add_argument('--ignore-ssl-errors')
+        options.add_argument('--allow-insecure-localhost')
+        # 性能优化选项
+        options.add_argument('--disable-extensions')
+        options.add_argument('--disable-logging')  # 禁用 Chrome 日志
+        options.add_argument('--disable-notifications')
+        options.add_argument('--disable-default-apps')
+        # 添加日志控制
+        options.add_experimental_option('excludeSwitches', ['enable-logging'])  # 禁用 DevTools 日志
         
-        # 使用 webdriver_manager 自动下载匹配的 ChromeDriver
-        service = Service(ChromeDriverManager().install())
-        self.driver = webdriver.Chrome(service=service, options=options)
-        
-        # 设置更长的隐式等待时间
-        self.driver.implicitly_wait(10)
-        
-        # 首问X(Twitter)以设置cookie
-        self.driver.get("https://x.com")
-        time.sleep(2)
-        
-        # 解析并设置cookies
-        cookies = self._parse_cookies_from_text(self.cookie)
-        
-        if not cookies:
-            raise Exception("未能从文件中解析到有效的cookies，请检查cookies格式是否正确")
-        
-        # 设置cookies
-        for cookie in cookies:
-            cookie_dict = {
-                'name': cookie['name'],
-                'value': cookie['value'],
-                'domain': '.x.com'
-            }
-            try:
-                self.driver.add_cookie(cookie_dict)
-            except Exception as e:
-                logging.warning(f"添加cookie失败: {cookie['name']}, 错误: {str(e)}")
-        
-        # 设置authorization和其他headers
-        if self.authorization:
-            self.driver.execute_cdp_cmd('Network.setExtraHTTPHeaders', {
-                'headers': {
-                    'authorization': self.authorization,
-                    'x-twitter-auth-type': 'OAuth2Session',
-                    'x-twitter-active-user': 'yes',
-                    'x-twitter-client-language': 'en'
-                }
-            })
-        else:
-            raise Exception("未找到authorization信息，请确保提供了authorization")
-        
-        # 验证cookies是否生效
-        logging.info("正在验证cookies...")
-        self.driver.get("https://x.com/home")
-        time.sleep(3)  # 等待页面加载
-        
-        # 检查是否被重定向到登录页面
-        if "x.com/login" in self.driver.current_url:
-            raise Exception("Cookie验证失败：被重定向到登录页面，请更新cookies")
-        
-        # 检查是否能找到首页特有的元素
         try:
-            WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, '[data-testid="primaryColumn"]'))
-            )
-            logging.info("Cookies验证成功！")
+            # 使用 webdriver_manager 自动下载匹配的 ChromeDriver
+            driver_path = ChromeDriverManager().install()
+            # 确保使用正确的 chromedriver.exe 路径
+            if os.path.exists(driver_path):
+                driver_dir = os.path.dirname(driver_path)
+                if 'win32' in driver_dir:
+                    chromedriver_path = os.path.join(driver_dir, 'chromedriver.exe')
+                else:
+                    chromedriver_path = os.path.join(driver_dir, 'chromedriver')
+                    
+                if os.path.exists(chromedriver_path):
+                    service = Service(chromedriver_path)
+                    logging.info(f"使用 ChromeDriver 路径: {chromedriver_path}")
+                else:
+                    raise Exception(f"ChromeDriver 可执行文件未找到: {chromedriver_path}")
+            else:
+                raise Exception(f"ChromeDriver 路径无效: {driver_path}")
+            
+            self.driver = webdriver.Chrome(service=service, options=options)
+            logging.info(f"Chrome 浏览器版本: {self.driver.capabilities['browserVersion']}")
+            
+            # 设置更长的隐式等待时间
+            self.driver.implicitly_wait(10)
+            
+            # 首问X(Twitter)以设置cookie
+            try:
+                self.driver.get("https://x.com")
+                time.sleep(2)
+            except Exception as e:
+                logging.error(f"访问 X.com 失败: {str(e)}")
+                if "net::ERR_CERT_" in str(e):
+                    logging.info("尝��绕过 SSL 证书错误...")
+                    self.driver.get("javascript:document.querySelector('#proceed-button').click()")
+                    time.sleep(2)
+            
+            # 解析并设置cookies
+            cookies = self._parse_cookies_from_text(self.cookie)
+            
+            if not cookies:
+                raise Exception("未能从文件中解析到有效的cookies，请检查cookies格式是否正确")
+            
+            # 设置cookies
+            for cookie in cookies:
+                cookie_dict = {
+                    'name': cookie['name'],
+                    'value': cookie['value'],
+                    'domain': '.x.com'
+                }
+                try:
+                    self.driver.add_cookie(cookie_dict)
+                except Exception as e:
+                    logging.warning(f"添加cookie失败: {cookie['name']}, 错误: {str(e)}")
+            
+            # 设置authorization和其他headers
+            if self.authorization:
+                self.driver.execute_cdp_cmd('Network.setExtraHTTPHeaders', {
+                    'headers': {
+                        'authorization': self.authorization,
+                        'x-twitter-auth-type': 'OAuth2Session',
+                        'x-twitter-active-user': 'yes',
+                        'x-twitter-client-language': 'en'
+                    }
+                })
+            else:
+                raise Exception("未找到authorization信息，请确保提供了authorization")
+            
+            # 验证cookies是否生效
+            logging.info("正在验证cookies...")
+            self.driver.get("https://x.com/home")
+            time.sleep(3)  # 等待页面加载
+            
+            # 检查是否被重定向到登录页面
+            if "x.com/login" in self.driver.current_url:
+                raise Exception("Cookie验证失败：被重定向到登录页面，请更新cookies")
+            
+            # 检查是否能找到首页特有的元素
+            try:
+                WebDriverWait(self.driver, 10).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, '[data-testid="primaryColumn"]'))
+                )
+                logging.info("Cookies验证成功！")
+            except Exception as e:
+                raise Exception("Cookie验证失败：无法加载Twitter首页，请检查cookies是否有效") from e
+                
         except Exception as e:
-            raise Exception("Cookie验证失败：无法加载Twitter首页，请检查cookies是否有效") from e
+            logging.error(f"Chrome driver 初始化或访问X.com失败: {str(e)}")
+            if hasattr(e, '__cause__'):
+                logging.error(f"原始错误: {e.__cause__}")
+            if self.driver:
+                self.driver.quit()
+            raise Exception("浏览器初始化失败，请确保Chrome浏览器已正确安装且版本兼容") from e
     
     def _parse_cookies_from_text(self, cookies_text):
         """从文本中解析cookies"""
@@ -182,7 +232,7 @@ class TwitterFollowingCrawler:
                     # logging.info(f"--原始提示文本: {follow_hint_div.text}")
                     # logging.info(f"--找到账号 {index+1}: {username}")
                     
-                    # 找到用户信息区域获取其他信息
+                    # 找到用信息区域获取其他信息
                     user_info_div = cell.find('div', class_='r-1iusvr4')
                     if not user_info_div:
                         continue
@@ -211,7 +261,7 @@ class TwitterFollowingCrawler:
                         
                 else:
                     # 如果没有找到Click to Follow提示，打印调试信息
-                    logging.warning(f"第 {index+1} 个用户单元格未找到有效的Follow提示文本")
+                    logging.warning(f"第 {index+1} 个用户单元未找到有效的Follow提示文本")
                     if follow_hint_div:
                         logging.warning(f"--找到的提示文本: {follow_hint_div.text}")
                 
@@ -404,9 +454,7 @@ class TwitterFollowingCrawler:
             
             url = f"https://x.com/{self.source_account.lower()}/following"
             self.driver.get(url)
-            
-            # 增加等待时间，确保页面完全加载
-            time.sleep(5)  # 增加初始等待时间
+            time.sleep(5)  # 等待初始页面加载
             
             try:
                 # 等待Following列表加载
@@ -414,29 +462,57 @@ class TwitterFollowingCrawler:
                     EC.presence_of_element_located((By.CSS_SELECTOR, '[data-testid="UserCell"]'))
                 )
                 
-                # 确保至少有一个用户单元格完全加载
-                WebDriverWait(self.driver, 20).until(
-                    lambda driver: len(driver.find_elements(By.CSS_SELECTOR, '[data-testid="UserCell"]')) > 0
-                )
+                # 执行滚动加载
+                last_height = 0
+                scroll_count = 0
+                all_following_accounts = []
                 
-                # 清除可能的缓存
-                self.driver.execute_script("window.localStorage.clear();")
-                self.driver.execute_script("window.sessionStorage.clear();")
+                while scroll_count < self.scroll_count:
+                    # 获取当前页面内容
+                    following_accounts = self.parse_following_list(self.driver.page_source)
+                    all_following_accounts.extend(following_accounts)
+                    
+                    # 滚动页面
+                    current_height = self.driver.execute_script("return document.documentElement.scrollHeight")
+                    if current_height == last_height:
+                        # 如果高度没有变化，可能已经到底或需要等待加载
+                        time.sleep(3)  # 多等待一下
+                        new_height = self.driver.execute_script("return document.documentElement.scrollHeight")
+                        if new_height == current_height:
+                            logging.info("已到达页面底部或无法加载更多内容")
+                            break
+                    
+                    # 执行滚动
+                    self.driver.execute_script(f"window.scrollTo(0, {current_height});")
+                    time.sleep(2)  # 等待内容加载
+                    
+                    # 保存滚动截图
+                    account_screenshot_dir = os.path.join(self.screenshots_dir, self.source_account.lower())
+                    os.makedirs(account_screenshot_dir, exist_ok=True)
+                    current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    screenshot_path = os.path.join(
+                        account_screenshot_dir,
+                        f"{current_time}_scroll_{scroll_count + 1}_{self.source_account.lower()}.png"
+                    )
+                    self.driver.save_screenshot(screenshot_path)
+                    
+                    last_height = current_height
+                    scroll_count += 1
+                    logging.info(f"完成第 {scroll_count} 次滚动，当前已获取 {len(all_following_accounts)} 个账号")
                 
-                # 重新获取页面内容
-                logging.info(f"为 {self.source_account} 找到以下关注账号：")
-                following_accounts = self.parse_following_list(self.driver.page_source)
-                
-                # for account_info, _ in following_accounts:
-                #     logging.info(f"  {account_info['display_name']} ({account_info['username']})")
-                #     if account_info['bio']:
-                #         logging.info(f"    Bio: {account_info['bio']}")
-                
-                self.save_to_db(following_accounts)
-                logging.info(f"已保存  {self.source_account} 的 {len(following_accounts)} 个following账号")
+                # 保存所有获取到的账号
+                if all_following_accounts:
+                    self.save_to_db(all_following_accounts)
+                    logging.info(f"已保存 {self.source_account} 的 {len(all_following_accounts)} 个following账号")
+                else:
+                    logging.warning(f"未找到 {self.source_account} 的following账号")
                 
             except Exception as e:
                 logging.error(f"抓取账号 {self.source_account} 时发生错误: {str(e)}")
+                current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+                account_screenshot_dir = os.path.join(self.screenshots_dir, self.source_account.lower())
+                os.makedirs(account_screenshot_dir, exist_ok=True)
+                
                 error_screenshot = os.path.join(
                     account_screenshot_dir,
                     f"{current_time}_error_{self.source_account}.png"

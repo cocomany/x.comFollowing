@@ -11,6 +11,7 @@ def reset_database():
         
         # 删除已存在的表
         cursor.execute('DROP TABLE IF EXISTS following')
+        cursor.execute('DROP TABLE IF EXISTS task_logs')
         
         # 创建following表
         cursor.execute('''
@@ -23,6 +24,19 @@ def reset_database():
             detected_time DATETIME,
             detected_order DATETIME,
             UNIQUE(source_account, following_account)
+        )
+        ''')
+        
+        # 创建任务日志表
+        cursor.execute('''
+        CREATE TABLE task_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_type TEXT,
+            start_time DATETIME,
+            end_time DATETIME,
+            status TEXT,
+            log_content TEXT,
+            affected_accounts TEXT
         )
         ''')
         

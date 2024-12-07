@@ -264,3 +264,75 @@ tr:hover {
     border-style: solid;
     border-color: white transparent transparent;
 }
+
+/* 定时任务管理页面样式 */
+.task-panel {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin: 20px 0;
+}
+
+.task-status, .task-config, .recent-logs {
+    margin-bottom: 30px;
+}
+
+.task-status button, .task-config button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    background-color: #007bff;
+    color: white;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+.task-status button:hover, .task-config button:hover {
+    background-color: #0056b3;
+}
+
+.time-config {
+    margin: 20px 0;
+}
+
+.time-config select {
+    padding: 5px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin: 0 5px;
+}
+
+.immediate-run {
+    margin-top: 20px;
+}
+
+.immediate-run button {
+    background-color: #28a745;
+}
+
+.immediate-run button:hover {
+    background-color: #218838;
+}
+
+.log-entry {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+}
+
+.log-content {
+    background: #f1f1f1;
+    padding: 10px;
+    border-radius: 4px;
+    margin-top: 10px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.log-content pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}

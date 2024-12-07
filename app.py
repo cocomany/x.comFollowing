@@ -12,6 +12,7 @@ from query_db import get_multiple_followed_accounts
 import pandas as pd
 from io import BytesIO
 from datetime import datetime, timedelta
+from task_scheduler import TaskScheduler, get_recent_logs
 
 # 在文件开头添加或修改日志配置
 logging.basicConfig(
@@ -258,5 +259,110 @@ def export_multiple_followed():
         logging.error(f"导出Excel文件时发生错误: {str(e)}")
         return f"Error exporting data: {str(e)}", 500
 
+@app.route('/schedule_tasks')
+def schedule_tasks():
+    """定时任务管理页面"""
+    scheduler = TaskScheduler.get_instance()
+    recent_logs = get_recent_logs(limit=5)
+    schedule = scheduler.get_schedule()
+    return render_template('schedule_tasks.html',
+                         task_enabled=scheduler.is_enabled(),
+                         recent_logs=recent_logs,
+                         schedule=schedule)
+
+@app.route('/toggle_schedule_task', methods=['POST'])
+def toggle_schedule_task():
+    """切换定时任务状态"""
+    try:
+        scheduler = TaskScheduler.get_instance()
+        if scheduler.is_enabled():
+            scheduler.stop()
+        else:
+            scheduler.start()
+        
+        return jsonify({
+            'status': 'success',
+            'enabled': scheduler.is_enabled(),
+            'message': '任务已' + ('启用' if scheduler.is_enabled() else '禁用'),
+            'schedule': scheduler.get_schedule()
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        })
+
+@app.route('/update_schedule', methods=['POST'])
+def update_schedule():
+    """更新定时任务时间"""
+    try:
+        data = request.json
+        hour = int(data.get('hour', 8))
+        minute = int(data.get('minute', 0))
+        
+        if not (0 <= hour <= 23 and 0 <= minute <= 59):
+            raise ValueError("无效的时间值")
+        
+        scheduler = TaskScheduler.get_instance()
+        scheduler.update_schedule(hour, minute)
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'定时任务已更新为每天 {hour:02d}:{minute:02d}',
+            'schedule': scheduler.get_schedule()
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        })
+
+@app.route('/run_task_now', methods=['POST'])
+def run_task_now():
+    """立即执行任务"""
+    try:
+        scheduler = TaskScheduler.get_instance()
+        scheduler.run_now()
+        return jsonify({
+            'status': 'success',
+            'message': '任务已开始执行'
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        })
+
+def get_recent_logs(limit=5):
+    """获取最近的任务日志"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT id, task_type, start_time, end_time, status, log_content, affected_accounts
+            FROM task_logs
+            ORDER BY start_time DESC
+            LIMIT ?
+        ''', (limit,))
+        
+        columns = [description[0] for description in cursor.description]
+        logs = []
+        for row in cursor.fetchall():
+            log = dict(zip(columns, row))
+            logs.append(log)
+        
+        return logs
+    finally:
+        if conn:
+            conn.close()
+
+def init_scheduler():
+    """初始化定时任务调度器"""
+    scheduler = TaskScheduler.get_instance()
+    if scheduler.is_enabled():
+        scheduler.start()
+
 if __name__ == '__main__':
+    init_scheduler()  # 初始化定时任务
     app.run(debug=True)

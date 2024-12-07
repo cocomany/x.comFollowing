@@ -5,99 +5,40 @@
     let isEventBound = false;
 
     function bindShowFollowingEvent() {
-        // 检查当前页面是否是 Following 页面
-        const showFollowingBtn = document.getElementById('show-following-btn');
-        const followingList = document.getElementById('following-list');
-        
         // 防止重复绑定
         if (isEventBound) return;
         isEventBound = true;
 
-        // 添加图片浮窗功能 - 这个功能应该在所有页面都可用
-        const helpIcons = document.querySelectorAll('.help-icon');
-        helpIcons.forEach(icon => {
-            if (!icon.querySelector('.image-tooltip')) {
-                const tooltip = document.createElement('div');
-                tooltip.className = 'image-tooltip';
-                const img = document.createElement('img');
-                img.src = icon.dataset.tooltipImage;
-                img.alt = '帮助说明';
-                tooltip.appendChild(img);
-                icon.appendChild(tooltip);
-            }
-
-            icon.addEventListener('mouseenter', function() {
-                const tooltip = this.querySelector('.image-tooltip');
-                if (tooltip) {
-                    tooltip.style.display = 'block';
-                    const rect = tooltip.getBoundingClientRect();
-                    if (rect.top < 0) {
-                        tooltip.style.bottom = 'auto';
-                        tooltip.style.top = '100%';
-                    }
-                }
-            });
-
-            icon.addEventListener('mouseleave', function() {
-                const tooltip = this.querySelector('.image-tooltip');
-                if (tooltip) {
-                    tooltip.style.display = 'none';
-                }
-            });
-        });
-
-        // Following页面特有的功能
-        if (showFollowingBtn && followingList) {
-            // Following页面的相关代码
-            showFollowingBtn.addEventListener('click', function() {
-                // 获取选中的账号
+        // 添加全选功能
+        const selectAllCheckbox = document.getElementById('select-all-accounts');
+        if (selectAllCheckbox) {
+            selectAllCheckbox.addEventListener('change', function() {
                 const accountCheckboxes = document.querySelectorAll('.account-checkbox');
-                const selectedAccounts = Array.from(accountCheckboxes)
-                    .filter(checkbox => checkbox.checked)
-                    .map(checkbox => checkbox.value);
+                accountCheckboxes.forEach(checkbox => {
+                    checkbox.checked = selectAllCheckbox.checked;
+                });
+            });
 
-                console.log('选中的账号:', selectedAccounts);
-
-                if (selectedAccounts.length === 0) {
-                    followingList.innerHTML = '<p>请至少选择一个账号</p>';
-                    return;
-                }
-
-                if (selectedAccounts.length === 1) {
-                    updateFollowingList(selectedAccounts[0]);
-                } else {
-                    updateCommonFollowingList(selectedAccounts);
-                }
+            // 监听单个复选框的变化
+            const accountCheckboxes = document.querySelectorAll('.account-checkbox');
+            accountCheckboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const allChecked = Array.from(accountCheckboxes).every(cb => cb.checked);
+                    selectAllCheckbox.checked = allChecked;
+                });
             });
         }
 
-        // 爬虫页面的功能
+        const showFollowingBtn = document.getElementById('show-following-btn');
+        const followingList = document.getElementById('following-list');
+        const accountCheckboxes = document.querySelectorAll('.account-checkbox');
         const triggerCrawlerBtn = document.getElementById('trigger-crawler-btn');
+        const statusMessage = document.getElementById('status-message');
+        const crawlerLog = document.getElementById('crawler-log');
+        const progressBar = document.getElementById('progress');
+
+        // 触发爬虫事件处理
         if (triggerCrawlerBtn) {
-            // 添加全选功能
-            const selectAllCheckbox = document.getElementById('select-all-accounts');
-            if (selectAllCheckbox) {
-                selectAllCheckbox.addEventListener('change', function() {
-                    const accountCheckboxes = document.querySelectorAll('.account-checkbox');
-                    accountCheckboxes.forEach(checkbox => {
-                        checkbox.checked = selectAllCheckbox.checked;
-                    });
-                });
-
-                // 监听单个复选框的变化
-                const accountCheckboxes = document.querySelectorAll('.account-checkbox');
-                accountCheckboxes.forEach(checkbox => {
-                    checkbox.addEventListener('change', function() {
-                        const allChecked = Array.from(accountCheckboxes).every(cb => cb.checked);
-                        selectAllCheckbox.checked = allChecked;
-                    });
-                });
-            }
-
-            const statusMessage = document.getElementById('status-message');
-            const crawlerLog = document.getElementById('crawler-log');
-            const progressBar = document.getElementById('progress');
-
             triggerCrawlerBtn.addEventListener('click', function() {
                 // 修改这里：每次点击时重新获取所有复选框
                 const accountCheckboxes = document.querySelectorAll('.account-checkbox');
@@ -185,6 +126,104 @@
                     statusMessage.textContent = '爬取发生错误：' + error.message;
                     statusMessage.style.color = 'red';
                 });
+            });
+        }
+
+        if (showFollowingBtn && followingList) {
+            showFollowingBtn.addEventListener('click', function() {
+                // 获取选中的账号
+                const selectedAccounts = Array.from(accountCheckboxes)
+                    .filter(checkbox => {
+                        //console.log('复选框状态:', checkbox.checked, checkbox.value);
+                        return checkbox.checked;
+                    })
+                    .map(checkbox => checkbox.value);
+
+                console.log('选中的账号:', selectedAccounts);
+
+                if (selectedAccounts.length === 0) {
+                    followingList.innerHTML = '<p>请至少选择一个账号</p>';
+                    return;
+                }
+
+                if (selectedAccounts.length === 1) {
+                    updateFollowingList(selectedAccounts[0]);
+                } else {
+                    updateCommonFollowingList(selectedAccounts);
+                }
+            });
+        } else {
+            console.error('未找到显示Following按钮或Following列表');
+        }
+
+        // 添加新账号功能
+        const addAccountBtn = document.getElementById('add-account-btn');
+        const newAccountInput = document.getElementById('new-account-input');
+        const accountList = document.getElementById('account-list');
+
+        if (addAccountBtn && newAccountInput && accountList) {
+            addAccountBtn.addEventListener('click', function() {
+                const accountsStr = newAccountInput.value.trim();
+                
+                if (!accountsStr) {
+                    alert('请输入账号名');
+                    return;
+                }
+
+                // 将输入按逗号分隔，处理每个账号
+                const newAccounts = accountsStr.split(',')
+                    .map(account => account.trim().toLowerCase())
+                    .filter(account => account); // 过滤掉空字符串
+
+                if (newAccounts.length === 0) {
+                    alert('请输入有效账号');
+                    return;
+                }
+
+                // 检查是否已存在
+                const existingAccounts = Array.from(accountList.querySelectorAll('.account-item span'))
+                    .map(span => span.textContent.trim().toLowerCase());
+
+                // 过滤掉已存在的账号
+                const accountsToAdd = newAccounts.filter(account => !existingAccounts.includes(account));
+
+                if (accountsToAdd.length === 0) {
+                    alert('所有账号都已存在');
+                    return;
+                }
+
+                // 添加新账号到列表
+                accountsToAdd.forEach(account => {
+                    const newAccountDiv = document.createElement('div');
+                    newAccountDiv.className = 'account-item';
+                    newAccountDiv.dataset.account = account;
+                    newAccountDiv.innerHTML = `
+                        <input type="checkbox" class="account-checkbox" value="${account}">
+                        <span>${account}</span>
+                    `;
+
+                    // 添加到列表中
+                    accountList.appendChild(newAccountDiv);
+
+                    // 为新添加的复选框添加事件监听
+                    const newCheckbox = newAccountDiv.querySelector('.account-checkbox');
+                    newCheckbox.addEventListener('change', function() {
+                        const allCheckboxes = document.querySelectorAll('.account-checkbox');
+                        const selectAllCheckbox = document.getElementById('select-all-accounts');
+                        const allChecked = Array.from(allCheckboxes).every(cb => cb.checked);
+                        selectAllCheckbox.checked = allChecked;
+                    });
+                });
+
+                // 清空输入框
+                newAccountInput.value = '';
+            });
+
+            // 添加回车键支持
+            newAccountInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    addAccountBtn.click();
+                }
             });
         }
     }
@@ -321,35 +360,4 @@
     } else {
         bindShowFollowingEvent();
     }
-
-    // 导出Excel的函数（放在全局作用域）
-    window.downloadExcel = function() {
-        fetch(downloadUrl, {
-            method: 'GET',
-            credentials: 'same-origin'
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            return response.blob();
-        })
-        .then(blob => {
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.style.display = 'none';
-            a.href = url;
-            a.download = `multiple_followed_analysis_${new Date().toISOString().split('T')[0]}.xlsx`;
-            
-            document.body.appendChild(a);
-            a.click();
-            
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-        })
-        .catch(error => {
-            console.error('下载失败:', error);
-            alert('下载失败，请重试');
-        });
-    };
 })();

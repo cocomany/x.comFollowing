@@ -9,7 +9,7 @@
     <nav class="main-nav">
         <ul>
             <li><a href="{{ url_for('index') }}">主页</a></li>
-            <li><a href="{{ url_for('update_crawler_page') }}">更新爬虫</a></li>
+            <li><a href="{{ url_for('update_crawler_page') }}">配置爬虫</a></li>
             <li><a href="{{ url_for('show_following') }}">显示Following</a></li>
             <li><a href="{{ url_for('comparison_report') }}">比较报告</a></li>
         </ul>
@@ -32,19 +32,16 @@
                 {% endfor %}
             </div>
             <div class="account-actions">
-                <input type="text" id="new-account-input" placeholder="输入新账号">
+                <input type="text" id="new-account-input" placeholder="输入新账号(多个账号用逗号分隔)">
                 <button id="add-account-btn">添加</button>
-                <small class="hint">可添加新的Twitter账号</small>
+                <small class="hint">可添加多个Twitter账号，用逗号分隔</small>
             </div>
             <div class="crawler-actions">
                 <h3>爬虫配置</h3>
-                <p>说明：浏览器登陆x.com，按F12或右键->检查，打开开发者工具，在Network标签下找到并复制Authorization和Cookie的值, 然后粘贴到下面的输入框中。
-                    <span class="help-icon" data-tooltip-image="{{ url_for('static', filename='img/getcookies.jpg') }}">?</span>
-                </p>
                 <input type="text" id="authorization-input" placeholder="输入 Authorization" value="{{ default_authorization }}">
                 <input type="text" id="cookie-input" placeholder="输入 Cookie" value="{{ default_cookie }}">
                 <small class="hint">默认配置已从cookies.txt加载</small>
-                <button id="trigger-crawler-btn">开始爬取Following List</button>
+                <button id="trigger-crawler-btn">触发爬虫</button>
             </div>
             <div id="crawler-status">
                 <h3>爬虫状态</h3>
@@ -55,7 +52,10 @@
                 <textarea id="crawler-log" readonly rows="10" placeholder="爬虫日志将在这里显示"></textarea>
             </div>
         </div>
-
+        <div class="right-panel">
+            <h2>Following列表</h2>
+            <div id="following-list"></div>
+        </div>
     </div>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>

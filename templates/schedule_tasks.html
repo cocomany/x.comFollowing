@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>定时任务管理</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <nav class="main-nav">
+        <ul>
+            <li><a href="{{ url_for('index') }}">主页</a></li>
+            <li><a href="{{ url_for('update_crawler_page') }}">配置爬虫</a></li>
+            <li><a href="{{ url_for('show_following') }}">显示Following</a></li>
+            <li><a href="{{ url_for('multiple_followed') }}">多重关注分析</a></li>
+            <li><a href="{{ url_for('schedule_tasks') }}">定时任务管理</a></li>
+        </ul>
+    </nav>
+    <div class="container">
+        <div class="task-panel">
+            <h2>定时任务管理</h2>
+            
+            <div class="task-status">
+                <h3>任务状态</h3>
+                <p>当前状态: <span id="task-status">{{ '已启用' if task_enabled else '已禁用' }}</span></p>
+                <button id="toggle-task" onclick="toggleTask()">{{ '禁用任务' if task_enabled else '启用任务' }}</button>
+            </div>
+            
+            <div class="task-config">
+                <h3>任务配置</h3>
+                <div class="time-config">
+                    <label for="hour">执行时间：</label>
+                    <select id="hour">
+                        {% for h in range(24) %}
+                        <option value="{{ h }}" {{ 'selected' if schedule.hour == h }}>{{ '%02d' % h }}</option>
+                        {% endfor %}
+                    </select>
+                    :
+                    <select id="minute">
+                        {% for m in range(60) %}
+                        <option value="{{ m }}" {{ 'selected' if schedule.minute == m }}>{{ '%02d' % m }}</option>
+                        {% endfor %}
+                    </select>
+                    <button onclick="updateSchedule()">更新时间</button>
+                </div>
+                <p>下次执行时间: <span id="next-run">{{ schedule.next_run or '未设置' }}</span></p>
+                <div class="immediate-run">
+                    <button onclick="runNow()">立即执行一次</button>
+                </div>
+            </div>
+
+            <div class="recent-logs">
+                <h3>最近执行日志</h3>
+                {% if recent_logs %}
+                    {% for log in recent_logs %}
+                    <div class="log-entry">
+                        <p><strong>执行时间:</strong> {{ log.start_time }}</p>
+                        <p><strong>状态:</strong> {{ log.status }}</p>
+                        <p><strong>影响账号:</strong> {{ log.affected_accounts }}</p>
+                        <div class="log-content">
+                            <pre>{{ log.log_content }}</pre>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p>暂无执行日志</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleTask() {
+            fetch('/toggle_schedule_task', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    document.getElementById('task-status').textContent = data.enabled ? '已启用' : '已禁用';
+                    document.getElementById('toggle-task').textContent = data.enabled ? '禁用任务' : '启用任务';
+                    document.getElementById('next-run').textContent = data.schedule.next_run || '未设置';
+                } else {
+                    alert('操作失败: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('操作失败，请查看控制台获取详细信息');
+            });
+        }
+
+        function updateSchedule() {
+            const hour = document.getElementById('hour').value;
+            const minute = document.getElementById('minute').value;
+            
+            fetch('/update_schedule', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ hour, minute })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    document.getElementById('next-run').textContent = data.schedule.next_run || '未设置';
+                    alert(data.message);
+                } else {
+                    alert('更新失败: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('更新失败，请查看控制台获取详细信息');
+            });
+        }
+
+        function runNow() {
+            if (!confirm('确定要立即执行一次任务吗？')) {
+                return;
+            }
+            
+            fetch('/run_task_now', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert(data.message);
+                    // 5秒后刷新页面以查看新的日志
+                    setTimeout(() => location.reload(), 5000);
+                } else {
+                    alert('执行失败: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('执行失败，请查看控制台获取详细信息');
+            });
+        }
+    </script>
+</body>
+</html>

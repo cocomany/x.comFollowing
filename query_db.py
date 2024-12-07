@@ -4,12 +4,14 @@ import os
 from datetime import datetime
 import itertools
 
-def get_source_accounts():
+def get_db_connection():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     db_path = os.path.join(current_dir, 'twitter_following.db')
-    
+    return sqlite3.connect(db_path)
+
+def get_source_accounts():
     try:
-        conn = sqlite3.connect(db_path)
+        conn = get_db_connection()
         cursor = conn.cursor()
         
         cursor.execute("SELECT DISTINCT source_account FROM following ORDER BY source_account")
@@ -26,11 +28,8 @@ def get_source_accounts():
             conn.close()
 
 def get_following_list(account):
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    db_path = os.path.join(current_dir, 'twitter_following.db')
-    
     try:
-        conn = sqlite3.connect(db_path)
+        conn = get_db_connection()
         cursor = conn.cursor()
         
         query = """
@@ -70,11 +69,8 @@ def get_following_list(account):
             conn.close()
 
 def get_common_following(accounts):
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    db_path = os.path.join(current_dir, 'twitter_following.db')
-    
     try:
-        conn = sqlite3.connect(db_path)
+        conn = get_db_connection()
         cursor = conn.cursor()
         
         placeholders = ','.join(['?' for _ in accounts])
@@ -119,11 +115,8 @@ def get_common_following(accounts):
             conn.close()
 
 def generate_comparison_report():
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    db_path = os.path.join(current_dir, 'twitter_following.db')
-    
     try:
-        conn = sqlite3.connect(db_path)
+        conn = get_db_connection()
         cursor = conn.cursor()
         
         cursor.execute("SELECT DISTINCT source_account FROM following ORDER BY source_account")
@@ -182,11 +175,8 @@ def get_multiple_followed_accounts(days_ago=2):
     """
     获取在指定日期之后被多个source_account关注的following_account
     """
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    db_path = os.path.join(current_dir, 'twitter_following.db')
-    
     try:
-        conn = sqlite3.connect(db_path)
+        conn = get_db_connection()
         cur = conn.cursor()
         
         query = """
@@ -218,6 +208,92 @@ def get_multiple_followed_accounts(days_ago=2):
     except Exception as e:
         print(f"Error in get_multiple_followed_accounts: {str(e)}")
         return []
+    finally:
+        if conn:
+            conn.close()
+
+def insert_task_log(log_data):
+    """插入任务日志并返回日志ID"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT INTO task_logs 
+            (task_type, start_time, status, log_content, affected_accounts)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (
+            log_data['task_type'],
+            log_data['start_time'],
+            log_data['status'],
+            log_data['log_content'],
+            log_data['affected_accounts']
+        ))
+        
+        log_id = cursor.lastrowid
+        conn.commit()
+        return log_id
+    finally:
+        if conn:
+            conn.close()
+
+def update_task_log(log_id, update_data, return_current=False):
+    """更新任务日志"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 构建更新语句
+        update_fields = []
+        update_values = []
+        for key, value in update_data.items():
+            update_fields.append(f"{key} = ?")
+            update_values.append(value)
+        
+        # 添加log_id到更新值列表
+        update_values.append(log_id)
+        
+        # 执行更新
+        cursor.execute(f'''
+            UPDATE task_logs
+            SET {', '.join(update_fields)}
+            WHERE id = ?
+        ''', update_values)
+        
+        if return_current:
+            # 获取更新后的记录
+            cursor.execute('SELECT * FROM task_logs WHERE id = ?', (log_id,))
+            columns = [description[0] for description in cursor.description]
+            row = cursor.fetchone()
+            if row:
+                return dict(zip(columns, row))
+        
+        conn.commit()
+        return None
+    finally:
+        if conn:
+            conn.close()
+
+def get_recent_logs(limit=5):
+    """获取最近的任务日志"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT id, task_type, start_time, end_time, status, log_content, affected_accounts
+            FROM task_logs
+            ORDER BY start_time DESC
+            LIMIT ?
+        ''', (limit,))
+        
+        columns = [description[0] for description in cursor.description]
+        logs = []
+        for row in cursor.fetchall():
+            log = dict(zip(columns, row))
+            logs.append(log)
+        
+        return logs
     finally:
         if conn:
             conn.close()
