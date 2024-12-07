@@ -432,11 +432,138 @@
             }
         })
         .catch(error => {
-            console.error('获取新增Following列表错误:', error);
+            console.error('获取新增Following列表错���:', error);
             const newFollowingList = document.getElementById('new-following-list');
             newFollowingList.innerHTML = `<p>获取新增Following列表时发生错误: ${error.message}</p>`;
         });
     }
+
+    function runNow() {
+        if (!confirm('确定要立即执行一次任务吗？')) {
+            return;
+        }
+        
+        fetch('/run_task_now', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                // 清空并显示日志区域
+                const logTextarea = document.getElementById('crawler-log');
+                logTextarea.value = '';
+                document.getElementById('current-task-status').style.display = 'block';
+                document.getElementById('status-message').textContent = '正在启动任务...';
+                document.getElementById('progress').style.width = '0%';
+                
+                // 开始定期检查任务状态
+                checkTaskStatus();
+            } else {
+                alert('执行失败: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('执行失败，请查看控制台获取详细信息');
+        });
+    }
+
+    function checkTaskStatus() {
+        const statusDiv = document.getElementById('current-task-status');
+        const statusMessage = document.getElementById('status-message');
+        const progressBar = document.getElementById('progress');
+        const logTextarea = document.getElementById('crawler-log');
+        let lastLogContent = '';
+        let lastStatus = '';
+
+        // 显示状态区域
+        statusDiv.style.display = 'block';
+        
+        // 每1秒检查一次任务状态
+        const intervalId = setInterval(() => {
+            fetch('/get_latest_log')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        const log = data.log;
+                        
+                        // 更新进度条
+                        progressBar.style.width = `${data.progress}%`;
+                        
+                        // 更新状态消息
+                        let statusText = '正在运行';
+                        let statusClass = 'status-running';
+                        
+                        if (log.status === 'completed') {
+                            statusText = '已完成';
+                            statusClass = 'status-completed';
+                        } else if (log.status === 'failed') {
+                            statusText = '失败';
+                            statusClass = 'status-failed';
+                        }
+                        
+                        // 如果状态发生变化，添加视觉提示
+                        if (lastStatus !== log.status) {
+                            statusMessage.className = statusClass;
+                            if (log.status === 'completed' || log.status === 'failed') {
+                                // 播放提示音（可选）
+                                const audio = new Audio('/static/notification.mp3');
+                                audio.play().catch(() => {});
+                                
+                                // 显示通知
+                                if (Notification.permission === "granted") {
+                                    new Notification("任务状态更新", {
+                                        body: `任务${statusText}`,
+                                        icon: "/static/favicon.ico"
+                                    });
+                                }
+                            }
+                            lastStatus = log.status;
+                        }
+                        
+                        statusMessage.textContent = `状态: ${statusText} (${Math.round(data.progress)}%)`;
+                        
+                        // 更新日志内容
+                        if (log.log_content && log.log_content !== lastLogContent) {
+                            logTextarea.value = log.log_content;
+                            logTextarea.scrollTop = logTextarea.scrollHeight;
+                            lastLogContent = log.log_content;
+                        }
+                        
+                        // 如果任务已完成或失败，停止检查
+                        if (log.status !== 'running') {
+                            clearInterval(intervalId);
+                            // 等待5秒后刷新页面
+                            setTimeout(() => {
+                                location.reload();
+                            }, 5000);
+                        }
+                    } else {
+                        console.error('获取日志失败:', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('检查任务状态失败:', error);
+                    clearInterval(intervalId);
+                });
+        }, 1000);
+        
+        // 设置最长检查时间为10分钟
+        setTimeout(() => {
+            clearInterval(intervalId);
+            location.reload();
+        }, 600000);
+    }
+
+    // 在页面加载时请求通知权限
+    document.addEventListener('DOMContentLoaded', function() {
+        if (Notification.permission !== "granted" && Notification.permission !== "denied") {
+            Notification.requestPermission();
+        }
+    });
 
     // 尝试绑定事件
     if (document.readyState === 'loading') {

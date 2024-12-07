@@ -404,3 +404,80 @@ tr:hover {
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     padding: 20px;
 }
+
+.status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.status-running {
+    background-color: #ffd700;
+    color: #000;
+}
+
+.status-completed {
+    background-color: #4caf50;
+    color: #fff;
+}
+
+.status-failed {
+    background-color: #f44336;
+    color: #fff;
+}
+
+#current-task-status {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
+
+#crawler-log {
+    width: 100%;
+    min-height: 200px;
+    max-height: 400px;
+    margin-top: 10px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-family: monospace;
+    resize: vertical;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 20px;
+    background-color: #f0f0f0;
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 10px 0;
+}
+
+.progress {
+    width: 0%;
+    height: 100%;
+    background-color: #4CAF50;
+    transition: width 0.3s ease;
+}
+
+.status-message {
+    font-weight: bold;
+    margin-bottom: 10px;
+    padding: 5px 10px;
+    border-radius: 4px;
+    transition: background-color 0.3s ease;
+}
+
+/* 添加状态变化时的动画效果 */
+@keyframes statusChange {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+.status-message.status-changed {
+    animation: statusChange 0.5s ease;
+}

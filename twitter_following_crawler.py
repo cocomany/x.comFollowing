@@ -32,7 +32,7 @@ class TwitterFollowingCrawler:
         
     def init_driver(self):
         """初始化Chrome driver并加载cookie"""
-        # 设置 selenium 和 urllib3 的日志���别为 WARNING 以上
+        # 设置 selenium 和 urllib3 的日志为 WARNING 以上
         selenium_logger = logging.getLogger('selenium')
         selenium_logger.setLevel(logging.WARNING)
         urllib3_logger = logging.getLogger('urllib3')
@@ -87,7 +87,7 @@ class TwitterFollowingCrawler:
             except Exception as e:
                 logging.error(f"访问 X.com 失败: {str(e)}")
                 if "net::ERR_CERT_" in str(e):
-                    logging.info("尝��绕过 SSL 证书错误...")
+                    logging.info("尝试通过 SSL 证书错误...")
                     self.driver.get("javascript:document.querySelector('#proceed-button').click()")
                     time.sleep(2)
             
@@ -446,7 +446,19 @@ class TwitterFollowingCrawler:
         except sqlite3.Error as e:
             logging.error(f"保存用户统计信息失败: {str(e)}")
     
-    def run(self):
+    def close(self):
+        """关闭爬虫实例，释放资源"""
+        try:
+            if self.driver:
+                self.driver.quit()
+                self.driver = None
+            if self.db_conn:
+                self.db_conn.close()
+                self.db_conn = None
+        except Exception as e:
+            logging.error(f"关闭爬虫实例时发生错误: {str(e)}")
+    
+    def run(self, progress_callback=None):
         """运行爬虫程序"""
         try:
             self.init_driver()
@@ -455,6 +467,9 @@ class TwitterFollowingCrawler:
             url = f"https://x.com/{self.source_account.lower()}/following"
             self.driver.get(url)
             time.sleep(5)  # 等待初始页面加载
+            
+            if progress_callback:
+                progress_callback(f"开始爬取账号 {self.source_account} 的 following 列表...")
             
             try:
                 # 等待Following列表加载
@@ -471,6 +486,10 @@ class TwitterFollowingCrawler:
                     # 获取当前页面内容
                     following_accounts = self.parse_following_list(self.driver.page_source)
                     all_following_accounts.extend(following_accounts)
+                    
+                    # 记录进度日志
+                    if progress_callback:
+                        progress_callback(f"账号 {self.source_account} - 第 {scroll_count + 1} 次滚动，当前已获取 {len(all_following_accounts)} 个账号")
                     
                     # 滚动页面
                     current_height = self.driver.execute_script("return document.documentElement.scrollHeight")
@@ -498,36 +517,21 @@ class TwitterFollowingCrawler:
                     
                     last_height = current_height
                     scroll_count += 1
-                    logging.info(f"完成第 {scroll_count} 次滚动，当前已获取 {len(all_following_accounts)} 个账号")
                 
                 # 保存所有获取到的账号
                 if all_following_accounts:
                     self.save_to_db(all_following_accounts)
-                    logging.info(f"已保存 {self.source_account} 的 {len(all_following_accounts)} 个following账号")
+                    if progress_callback:
+                        progress_callback(f"账号 {self.source_account} - 已成功保存 {len(all_following_accounts)} 个following账号")
                 else:
-                    logging.warning(f"未找到 {self.source_account} 的following账号")
+                    if progress_callback:
+                        progress_callback(f"账号 {self.source_account} - 未找到following账号")
                 
             except Exception as e:
-                logging.error(f"抓取账号 {self.source_account} 时发生错误: {str(e)}")
-                current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-                account_screenshot_dir = os.path.join(self.screenshots_dir, self.source_account.lower())
-                os.makedirs(account_screenshot_dir, exist_ok=True)
-                
-                error_screenshot = os.path.join(
-                    account_screenshot_dir,
-                    f"{current_time}_error_{self.source_account}.png"
-                )
-                self.driver.save_screenshot(error_screenshot)
-                error_html = os.path.join(
-                    account_screenshot_dir,
-                    f"{current_time}_error_{self.source_account}.html"
-                )
-                with open(error_html, "w", encoding="utf-8") as f:
-                    f.write(self.driver.page_source)
-                raise
+                error_msg = f"账号 {self.source_account} - 爬取失败: {str(e)}"
+                if progress_callback:
+                    progress_callback(error_msg)
+                raise Exception(error_msg)
                 
         finally:
-            if self.driver:
-                self.driver.quit()
-            if self.db_conn:
-                self.db_conn.close()
+            self.close()

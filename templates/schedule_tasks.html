@@ -50,11 +50,28 @@
 
             <div class="recent-logs">
                 <h3>最近执行日志</h3>
+                <div id="current-task-status" style="display: none;">
+                    <h4>当前任务状态</h4>
+                    <div class="status-message" id="status-message"></div>
+                    <div class="progress-bar">
+                        <div id="progress" class="progress"></div>
+                    </div>
+                    <textarea id="crawler-log" readonly rows="10" placeholder="任务日志将在这里显示"></textarea>
+                </div>
+                
                 {% if recent_logs %}
                     {% for log in recent_logs %}
                     <div class="log-entry">
                         <p><strong>执行时间:</strong> {{ log.start_time }}</p>
-                        <p><strong>状态:</strong> {{ log.status }}</p>
+                        <p>
+                            <strong>状态:</strong> 
+                            <span class="status-badge status-{{ log.status }}">
+                                {% if log.status == 'running' %}运行中
+                                {% elif log.status == 'completed' %}已完成
+                                {% elif log.status == 'failed' %}失败
+                                {% else %}{{ log.status }}{% endif %}
+                            </span>
+                        </p>
                         <p><strong>影响账号:</strong> {{ log.affected_accounts }}</p>
                         <div class="log-content">
                             <pre>{{ log.log_content }}</pre>

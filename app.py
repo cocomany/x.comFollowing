@@ -327,7 +327,7 @@ def run_task_now():
         })
 
 def get_recent_logs(limit=5):
-    """获取最近的任务日志"""
+    """获���近的任务日志"""
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -370,6 +370,101 @@ def get_new_following_list():
         'status': 'success',
         'new_following_lists': result
     })
+
+@app.route('/check_task_status')
+def check_task_status():
+    """检查最近任务的状态"""
+    try:
+        recent_log = get_recent_logs(1)[0]
+        return jsonify({
+            'status': recent_log['status']
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        })
+
+@app.route('/get_latest_log')
+def get_latest_log():
+    """获取最新的任务日志"""
+    try:
+        logs = get_recent_logs(1)
+        if logs:
+            latest_log = logs[0]
+            
+            # 如果有对应的日志文件，直接读取
+            log_dir = 'logs'
+            if os.path.exists(log_dir):
+                # 查找最新的日志文���
+                log_files = [f for f in os.listdir(log_dir) if f.startswith(f'task_{latest_log["id"]}_')]
+                if log_files:
+                    latest_file = sorted(log_files)[-1]
+                    log_path = os.path.join(log_dir, latest_file)
+                    try:
+                        with open(log_path, 'r', encoding='utf-8') as f:
+                            # 读取文件内容并更新到 latest_log
+                            latest_log['log_content'] = f.read()
+                            
+                            # 同时更新数据库中的日志内容
+                            conn = get_db_connection()
+                            cursor = conn.cursor()
+                            cursor.execute('''
+                                UPDATE task_logs 
+                                SET log_content = ? 
+                                WHERE id = ?
+                            ''', (latest_log['log_content'], latest_log['id']))
+                            conn.commit()
+                            conn.close()
+                    except Exception as e:
+                        print(f"Error reading log file: {str(e)}")
+                        return jsonify({
+                            'status': 'error',
+                            'message': f"读取日志文件失败: {str(e)}"
+                        })
+            
+            # 计算进度
+            progress = 0
+            if latest_log['status'] == TaskScheduler.STATUS_RUNNING:
+                content = latest_log['log_content']
+                if '找到' in content and '个源账号' in content:
+                    progress = 10
+                if '正在爬取账号' in content:
+                    # 从日志内容中提取当前正在处理的账号序号
+                    import re
+                    match = re.search(r'\[(\d+)/(\d+)\]', content)
+                    if match:
+                        current, total = map(int, match.groups())
+                        progress = 10 + (current / total * 80)  # 给爬取过程分配80%的进度
+                if '成功爬取账号' in content:
+                    # 计算已完成账号数占总数的比例
+                    total_accounts = len(latest_log['affected_accounts'].split(',')) if latest_log['affected_accounts'] else 0
+                    completed_accounts = content.count('成功爬取账号')
+                    if total_accounts > 0:
+                        progress = min(90, 10 + (completed_accounts / total_accounts * 80))
+                if '任务完成' in content:
+                    progress = 100
+                elif '任务失败' in content:
+                    progress = 100
+            elif latest_log['status'] in [TaskScheduler.STATUS_COMPLETED, TaskScheduler.STATUS_FAILED]:
+                progress = 100
+
+            return jsonify({
+                'status': 'success',
+                'log': latest_log,
+                'progress': progress
+            })
+            
+        return jsonify({
+            'status': 'error',
+            'message': '没有找到日志'
+        })
+    except Exception as e:
+        print(f"Error in get_latest_log: {str(e)}")  # 添加调试日志
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        })
 
 if __name__ == '__main__':
     init_scheduler()  # 初始化定时任务
