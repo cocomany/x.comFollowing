@@ -201,61 +201,53 @@ def multiple_followed():
 @app.route('/export_multiple_followed')
 def export_multiple_followed():
     try:
-        logging.info("开始导出Excel文件...")
-        days = request.args.get('days', '2')
-        days_int = int(days)
+        days = request.args.get('days', default=7, type=int)
         
-        # 直接使用 multiple_followed 函数中的逻辑获取数据
-        results = get_multiple_followed_accounts(days_int)
+        # 使用已存在的函数获取数据
+        results = get_multiple_followed_accounts(days)  
         
         if not results:
-            logging.warning("没有找到可导出的数据")
             return "No data available for export", 404
         
-        logging.info(f"找到 {len(results)} 条记录，开始创建Excel文件...")
+        # 转换数据格式为DataFrame
+        data = []
+        for result in results:
+            following_account = result[0]
+            follow_count = result[1]
+            source_accounts = ', '.join(result[2])  # 将source accounts列表转换为逗号分隔的字符串
+            data.append({
+                'Following Account': following_account,
+                '被关注次数': follow_count,
+                '关注该账号的Source Accounts': source_accounts
+            })
         
-        # 创建DataFrame，将source accounts列表转换为逗号分隔的字符串
-        df = pd.DataFrame(
-            [(row[0], row[1], ', '.join(row[2])) for row in results],
-            columns=['Following Account', '被关注次数', '关注该账号的Source Accounts']
-        )
+        df = pd.DataFrame(data)
         
-        # 创建Excel文件
+        # 创建一个字节流
         output = BytesIO()
-        logging.info("正在写入Excel文件...")
         
+        # 将DataFrame写入Excel
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            df.to_excel(writer, sheet_name='多重关注分析', index=False)
+            df.to_excel(writer, index=False, sheet_name='多重关注分析')
             
-            # 获取工作表对象
+            # 获取xlsxwriter工作簿和工作表对象
+            workbook = writer.book
             worksheet = writer.sheets['多重关注分析']
             
-            # 调整列宽
+            # 设置列宽
             worksheet.set_column('A:A', 20)  # Following Account
             worksheet.set_column('B:B', 15)  # 被关注次数
-            worksheet.set_column('C:C', 40)  # Source Accounts
+            worksheet.set_column('C:C', 50)  # Source Accounts
         
+        # 重置指针到开始位置
         output.seek(0)
         
-        # 生成文件名
-        filename = f'multiple_followed_analysis_{datetime.now().strftime("%Y%m%d")}.xlsx'
-        logging.info(f"Excel文件创建完成: {filename}")
-        
-        response = send_file(
+        return send_file(
             output,
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             as_attachment=True,
-            download_name=filename
+            download_name=f'multiple_followed_analysis_{datetime.now().strftime("%Y%m%d")}.xlsx'
         )
-        
-        # 添加响应头，禁用缓存
-        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-        response.headers["Pragma"] = "no-cache"
-        response.headers["Expires"] = "0"
-        
-        logging.info("文件导出成功")
-        return response
-        
     except Exception as e:
         logging.error(f"导出Excel文件时发生错误: {str(e)}")
         return f"Error exporting data: {str(e)}", 500

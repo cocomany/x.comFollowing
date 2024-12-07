@@ -389,3 +389,18 @@ tr:hover {
     padding-bottom: 8px;
     margin-bottom: 15px;
 }
+
+
+.report-panel {
+    width: 100%;
+    max-width: 1200px;
+    margin: 20px auto;
+    min-height: calc(100vh - 100px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background-color: white;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    padding: 20px;
+}

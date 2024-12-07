@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <title>多重关注分析</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
 </head>
 <body>
     <nav class="main-nav">
@@ -17,7 +16,7 @@
         </ul>
     </nav>
     <div class="container">
-        <div class="report-panel">
+        <div class="report-panel" style="width: 100%; max-width: 1200px; margin: 20px auto; min-height: calc(100vh - 100px); display: flex; flex-direction: column; justify-content: center;">
             <h1>多重关注账号分析</h1>
             
             <form method="get" class="mb-4">
@@ -35,12 +34,12 @@
 
             {% if results %}
                 <div style="display: flex; justify-content: flex-end; margin-bottom: 15px;">
-                    <button onclick="downloadExcel()" class="export-btn">导出Excel</button>
+                    <button id="downloadBtn" class="export-btn">导出Excel</button>
                 </div>
 
                 <script>
-                    // 设置下载URL
-                    var downloadUrl = "{{ url_for('export_multiple_followed', days=selected_days) }}";
+                    // 将下载URL定义为全局变量
+                    window.downloadUrl = "{{ url_for('export_multiple_followed', days=selected_days) }}";
                 </script>
 
                 <table>
@@ -80,5 +79,9 @@
             {% endif %}
         </div>
     </div>
+
+    <!-- 将脚本移到body底部，并修正路径 -->
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/multiple_followed.js') }}"></script>
 </body>
 </html> 
