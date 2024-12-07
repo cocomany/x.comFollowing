@@ -327,7 +327,7 @@ def run_task_now():
         })
 
 def get_recent_logs(limit=5):
-    """获���近的任务日志"""
+    """获近的任务日志"""
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -396,7 +396,7 @@ def get_latest_log():
             # 如果有对应的日志文件，直接读取
             log_dir = 'logs'
             if os.path.exists(log_dir):
-                # 查找最新的日志文���
+                # 查找最新的日志文件
                 log_files = [f for f in os.listdir(log_dir) if f.startswith(f'task_{latest_log["id"]}_')]
                 if log_files:
                     latest_file = sorted(log_files)[-1]
@@ -465,6 +465,19 @@ def get_latest_log():
             'status': 'error',
             'message': str(e)
         })
+
+@app.route('/save_accounts', methods=['POST'])
+def save_accounts():
+    try:
+        data = request.get_json()
+        accounts = data.get('accounts', [])
+        
+        # 这里添加保存账号的逻辑
+        # 例如保存到文件或数据库
+        
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)})
 
 if __name__ == '__main__':
     init_scheduler()  # 初始化定时任务

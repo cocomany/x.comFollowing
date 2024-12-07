@@ -40,8 +40,8 @@
         // 触发爬虫事件处理
         if (triggerCrawlerBtn) {
             triggerCrawlerBtn.addEventListener('click', function() {
-                // 获取选中的账号
-                const selectedAccounts = Array.from(accountCheckboxes)
+                // 修改获取选中账号的方式，使用最新的DOM元素
+                const selectedAccounts = Array.from(document.querySelectorAll('.account-checkbox'))
                     .filter(checkbox => checkbox.checked)
                     .map(checkbox => checkbox.value);
 
@@ -192,6 +192,8 @@
                     const newAccountDiv = document.createElement('div');
                     newAccountDiv.className = 'account-item';
                     newAccountDiv.dataset.account = account;
+                    
+                    // 确保新的复选框有正确的class和value属性
                     newAccountDiv.innerHTML = `
                         <input type="checkbox" class="account-checkbox" value="${account}">
                         <span>${account}</span>
@@ -203,6 +205,7 @@
                     // 为新添加的复选框添加事件监听
                     const newCheckbox = newAccountDiv.querySelector('.account-checkbox');
                     newCheckbox.addEventListener('change', function() {
+                        // 更新全选状态
                         const allCheckboxes = document.querySelectorAll('.account-checkbox');
                         const selectAllCheckbox = document.getElementById('select-all-accounts');
                         const allChecked = Array.from(allCheckboxes).every(cb => cb.checked);
@@ -212,6 +215,26 @@
 
                 // 清空输入框
                 newAccountInput.value = '';
+
+                // 保存新账号到服务器（如果需要的话）
+                fetch('/save_accounts', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        accounts: accountsToAdd
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status !== 'success') {
+                        console.error('保存账号失败:', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('保存账号错误:', error);
+                });
             });
 
             // 添加回车键支持
@@ -432,7 +455,7 @@
             }
         })
         .catch(error => {
-            console.error('获取新增Following列表错���:', error);
+            console.error('获取新增Following列表错误:', error);
             const newFollowingList = document.getElementById('new-following-list');
             newFollowingList.innerHTML = `<p>获取新增Following列表时发生错误: ${error.message}</p>`;
         });
