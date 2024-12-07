@@ -43,6 +43,7 @@
         <div class="right-panel">
             <div class="crawler-actions">
                 <h3>爬虫配置</h3>
+                <p style="font-size: 0.8em;">浏览器登陆x.com后，按F12或者右键菜单选择"检查"，打开开发者工具，点开"网络"标签，搜索client_event.json， 左边点开任意元素，右边找到"Authorization"和"Cookie"，复制到下面的输入框中。<a href="{{ url_for('static', filename='img/getcookies.jpg') }}" target="_blank">查看示例图片</a></p>
                 <input type="text" id="authorization-input" placeholder="输入 Authorization" value="{{ default_authorization }}">
                 <input type="text" id="cookie-input" placeholder="输入 Cookie" value="{{ default_cookie }}">
                 <small class="hint">默认配置已从cookies.txt加载</small>

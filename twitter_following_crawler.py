@@ -31,8 +31,8 @@ class TwitterFollowingCrawler:
         self.screenshots_dir = "screenshots"
         
     def init_driver(self):
-        """初始化Chrome driver并加载cookie"""
-        # 设置 selenium 和 urllib3 的日志��� WARNING 以上
+        """初始化Chromium driver并加载cookie"""
+        # 设置 selenium 和 urllib3 的日志级别为 WARNING 以上
         selenium_logger = logging.getLogger('selenium')
         selenium_logger.setLevel(logging.WARNING)
         urllib3_logger = logging.getLogger('urllib3')
@@ -49,45 +49,33 @@ class TwitterFollowingCrawler:
         options.add_argument('--allow-insecure-localhost')
         # 性能优化选项
         options.add_argument('--disable-extensions')
-        options.add_argument('--disable-logging')  # 禁用 Chrome 日志
+        options.add_argument('--disable-logging')
         options.add_argument('--disable-notifications')
         options.add_argument('--disable-default-apps')
+        # 指定 Chromium 二进制文件路径
+        options.binary_location = '/usr/bin/chromium-browser'
         # 添加日志控制
-        options.add_experimental_option('excludeSwitches', ['enable-logging'])  # 禁用 DevTools 日志
+        options.add_experimental_option('excludeSwitches', ['enable-logging'])
         
         try:
-            # 使用 webdriver_manager 自动下载匹配的 ChromeDriver
-            driver_path = ChromeDriverManager().install()
-            # 确保使用正确的 chromedriver.exe 路径
-            if os.path.exists(driver_path):
-                driver_dir = os.path.dirname(driver_path)
-                if 'win32' in driver_dir:
-                    chromedriver_path = os.path.join(driver_dir, 'chromedriver.exe')
-                else:
-                    chromedriver_path = os.path.join(driver_dir, 'chromedriver')
-                    
-                if os.path.exists(chromedriver_path):
-                    service = Service(chromedriver_path)
-                    logging.info(f"使用 ChromeDriver 路径: {chromedriver_path}")
-                else:
-                    raise Exception(f"ChromeDriver 可执行文件未找到: {chromedriver_path}")
-            else:
-                raise Exception(f"ChromeDriver 路径无效: {driver_path}")
+            # 直接使用系统安装的 chromedriver
+            service = Service('/usr/bin/chromedriver')
+            logging.info("使用系统安装的 ChromeDriver")
             
             self.driver = webdriver.Chrome(service=service, options=options)
-            logging.info(f"Chrome 浏览器版本: {self.driver.capabilities['browserVersion']}")
+            logging.info(f"Chromium 浏览器版本: {self.driver.capabilities['browserVersion']}")
             
             # 设置更长的隐式等待时间
             self.driver.implicitly_wait(10)
             
-            # 首问X(Twitter)以设置cookie
+            # 首访X(Twitter)以设置cookie
             try:
                 self.driver.get("https://x.com")
                 time.sleep(2)
             except Exception as e:
                 logging.error(f"访问 X.com 失败: {str(e)}")
                 if "net::ERR_CERT_" in str(e):
-                    logging.info("尝试通�� SSL 证书错误...")
+                    logging.info("尝试通过 SSL 证书错误...")
                     self.driver.get("javascript:document.querySelector('#proceed-button').click()")
                     time.sleep(2)
             
@@ -141,12 +129,12 @@ class TwitterFollowingCrawler:
                 raise Exception("Cookie验证失败：无法加载Twitter首页，请检查cookies是否有效") from e
                 
         except Exception as e:
-            logging.error(f"Chrome driver 初始化或访问X.com失败: {str(e)}")
+            logging.error(f"Chromium driver 初始化或访问X.com失败: {str(e)}")
             if hasattr(e, '__cause__'):
                 logging.error(f"原始错误: {e.__cause__}")
             if self.driver:
                 self.driver.quit()
-            raise Exception("浏览器初始化失败，请确保Chrome浏览器已正确安装且版本兼容") from e
+            raise Exception("浏览器初始化失败，请确保Chromium浏览器已正确安装且版本兼容") from e
     
     def _parse_cookies_from_text(self, cookies_text):
         """从文本中解析cookies"""
@@ -387,7 +375,7 @@ class TwitterFollowingCrawler:
                         follower_count = parse_count(count_text)
                 
                 if following_count == 0 and follower_count == 0:
-                    logging.warning(f"未能找到用户 {username} 的统计信息")
+                    logging.warning(f"未能找到用户 {username} ��统计信息")
                     return None
                     
                 logging.info(f"成功获取用户 {username} 的统计信息: Following: {following_count}, Followers: {follower_count}")
@@ -445,7 +433,62 @@ class TwitterFollowingCrawler:
             logging.info(f"已保存用户 {username} 的统计信息")
         except sqlite3.Error as e:
             logging.error(f"保存用户统计信息失败: {str(e)}")
-    
+
+    def clean_old_files(self, days: int = 14):
+        """清理超过指定天数的日志和截图文件"""
+        try:
+            current_time = time.time()
+            days_in_seconds = days * 24 * 60 * 60
+            
+            # 清理截图目录
+            if os.path.exists(self.screenshots_dir):
+                logging.info(f"开始清理 {days} 天前的截图文件...")
+                cleaned_count = 0
+                for root, dirs, files in os.walk(self.screenshots_dir):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        if os.path.isfile(file_path):
+                            file_time = os.path.getmtime(file_path)
+                            if current_time - file_time > days_in_seconds:
+                                try:
+                                    os.remove(file_path)
+                                    cleaned_count += 1
+                                except Exception as e:
+                                    logging.error(f"删除文件失败 {file_path}: {str(e)}")
+                
+                # 清理空目录
+                for root, dirs, files in os.walk(self.screenshots_dir, topdown=False):
+                    for dir_name in dirs:
+                        dir_path = os.path.join(root, dir_name)
+                        if not os.listdir(dir_path):  # 如果目录为空
+                            try:
+                                os.rmdir(dir_path)
+                            except Exception as e:
+                                logging.error(f"删除空目录失败 {dir_path}: {str(e)}")
+                
+                logging.info(f"清理完成，共删除 {cleaned_count} 个过期文件")
+            
+            # 清理日志文件
+            log_dir = "logs"  # 假设日志保存在logs目录
+            if os.path.exists(log_dir):
+                logging.info(f"开始清理 {days} 天前的日志文件...")
+                cleaned_count = 0
+                for file in os.listdir(log_dir):
+                    if file.endswith(".log"):
+                        file_path = os.path.join(log_dir, file)
+                        if os.path.isfile(file_path):
+                            file_time = os.path.getmtime(file_path)
+                            if current_time - file_time > days_in_seconds:
+                                try:
+                                    os.remove(file_path)
+                                    cleaned_count += 1
+                                except Exception as e:
+                                    logging.error(f"删除日志文件失败 {file_path}: {str(e)}")
+                logging.info(f"清理完成，共删除 {cleaned_count} 个过期日志文件")
+                
+        except Exception as e:
+            logging.error(f"清理历史文件时发生错误: {str(e)}")
+            
     def close(self):
         """关闭爬虫实例，释放资源"""
         try:
@@ -459,8 +502,13 @@ class TwitterFollowingCrawler:
             logging.error(f"关闭爬虫实例时发生错误: {str(e)}")
     
     def run(self, progress_callback=None):
-        """运行爬虫程序"""
+        """运行爬虫程���"""
         try:
+            # 添加清理历史文件的步骤
+            if progress_callback:
+                progress_callback("正在清理历史文件...")
+            self.clean_old_files()
+
             if progress_callback:
                 progress_callback("正在初始化浏览器...")
             self.init_driver()
@@ -491,7 +539,7 @@ class TwitterFollowingCrawler:
                     following_accounts = self.parse_following_list(self.driver.page_source)
                     all_following_accounts.extend(following_accounts)
                     
-                    # 记录进度日志
+                    # 记录���度日志
                     if progress_callback:
                         progress_callback(f"账号 {self.source_account} - 第 {scroll_count + 1} 次滚动，当前已获取 {len(all_following_accounts)} 个账号")
                     
