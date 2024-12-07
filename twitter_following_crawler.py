@@ -513,6 +513,7 @@ class TwitterFollowingCrawler:
                         account_screenshot_dir,
                         f"{current_time}_scroll_{scroll_count + 1}_{self.source_account.lower()}.png"
                     )
+                   
                     self.driver.save_screenshot(screenshot_path)
                     
                     last_height = current_height
