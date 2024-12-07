@@ -47,3 +47,4 @@ config/cookies.txt
 # Operating System
 .DS_Store
 Thumbs.db
+twitter_following.db
