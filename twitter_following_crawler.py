@@ -32,7 +32,7 @@ class TwitterFollowingCrawler:
         
     def init_driver(self):
         """初始化Chrome driver并加载cookie"""
-        # 设置 selenium 和 urllib3 的日志为 WARNING 以上
+        # 设置 selenium 和 urllib3 的日志��� WARNING 以上
         selenium_logger = logging.getLogger('selenium')
         selenium_logger.setLevel(logging.WARNING)
         urllib3_logger = logging.getLogger('urllib3')
@@ -87,7 +87,7 @@ class TwitterFollowingCrawler:
             except Exception as e:
                 logging.error(f"访问 X.com 失败: {str(e)}")
                 if "net::ERR_CERT_" in str(e):
-                    logging.info("尝试通过 SSL 证书错误...")
+                    logging.info("尝试通�� SSL 证书错误...")
                     self.driver.get("javascript:document.querySelector('#proceed-button').click()")
                     time.sleep(2)
             
@@ -461,10 +461,14 @@ class TwitterFollowingCrawler:
     def run(self, progress_callback=None):
         """运行爬虫程序"""
         try:
+            if progress_callback:
+                progress_callback("正在初始化浏览器...")
             self.init_driver()
             self.init_db()
             
             url = f"https://x.com/{self.source_account.lower()}/following"
+            if progress_callback:
+                progress_callback(f"正在访问 {url}")
             self.driver.get(url)
             time.sleep(5)  # 等待初始页面加载
             
@@ -523,7 +527,7 @@ class TwitterFollowingCrawler:
                 if all_following_accounts:
                     self.save_to_db(all_following_accounts)
                     if progress_callback:
-                        progress_callback(f"账号 {self.source_account} - 已成功保存 {len(all_following_accounts)} 个following账号")
+                        progress_callback(f"账号 {self.source_account} - 已成功保存 {len(all_following_accounts)} 个following账号(有重复)")
                 else:
                     if progress_callback:
                         progress_callback(f"账号 {self.source_account} - 未找到following账号")
@@ -531,8 +535,12 @@ class TwitterFollowingCrawler:
             except Exception as e:
                 error_msg = f"账号 {self.source_account} - 爬取失败: {str(e)}"
                 if progress_callback:
-                    progress_callback(error_msg)
+                    progress_callback(f"错误: {error_msg}")  # 确保错误信息被记录
                 raise Exception(error_msg)
                 
+        except Exception as e:
+            if progress_callback:
+                progress_callback(f"严重错误: {str(e)}")  # 确保错误信息被记录
+            raise
         finally:
             self.close()

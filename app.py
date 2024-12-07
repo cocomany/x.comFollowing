@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, Response, send_file
+from flask import Flask, render_template, request, jsonify, Response, send_file, send_from_directory
 import sqlite3
 import os
 import json
@@ -327,28 +327,25 @@ def run_task_now():
         })
 
 def get_recent_logs(limit=5):
-    """获近的任务日志"""
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            SELECT id, task_type, start_time, end_time, status, log_content, affected_accounts
-            FROM task_logs
-            ORDER BY start_time DESC
-            LIMIT ?
-        ''', (limit,))
-        
-        columns = [description[0] for description in cursor.description]
-        logs = []
-        for row in cursor.fetchall():
-            log = dict(zip(columns, row))
-            logs.append(log)
-        
-        return logs
-    finally:
-        if conn:
-            conn.close()
+    """获取最近的日志文件列表"""
+    logs_dir = 'logs'
+    if not os.path.exists(logs_dir):
+        return []
+    
+    log_files = []
+    for filename in os.listdir(logs_dir):
+        if filename.endswith('.log'):
+            file_path = os.path.join(logs_dir, filename)
+            log_files.append({
+                'filename': filename,
+                'path': file_path,
+                'time': datetime.fromtimestamp(os.path.getctime(file_path)).strftime('%Y-%m-%d %H:%M:%S'),
+                'size': os.path.getsize(file_path)
+            })
+    
+    # 按创建时间倒序排序
+    log_files.sort(key=lambda x: x['time'], reverse=True)
+    return log_files[:limit]
 
 def init_scheduler():
     """初始化定时任务调度器"""
@@ -371,20 +368,6 @@ def get_new_following_list():
         'new_following_lists': result
     })
 
-@app.route('/check_task_status')
-def check_task_status():
-    """检查最近任务的状态"""
-    try:
-        recent_log = get_recent_logs(1)[0]
-        return jsonify({
-            'status': recent_log['status']
-        })
-    except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        })
-
 @app.route('/get_latest_log')
 def get_latest_log():
     """获取最新的任务日志"""
@@ -392,75 +375,45 @@ def get_latest_log():
         logs = get_recent_logs(1)
         if logs:
             latest_log = logs[0]
-            
-            # 如果有对应的日志文件，直接读取
-            log_dir = 'logs'
-            if os.path.exists(log_dir):
-                # 查找最新的日志文件
-                log_files = [f for f in os.listdir(log_dir) if f.startswith(f'task_{latest_log["id"]}_')]
-                if log_files:
-                    latest_file = sorted(log_files)[-1]
-                    log_path = os.path.join(log_dir, latest_file)
-                    try:
-                        with open(log_path, 'r', encoding='utf-8') as f:
-                            # 读取文件内容并更新到 latest_log
-                            latest_log['log_content'] = f.read()
-                            
-                            # 同时更新数据库中的日志内容
-                            conn = get_db_connection()
-                            cursor = conn.cursor()
-                            cursor.execute('''
-                                UPDATE task_logs 
-                                SET log_content = ? 
-                                WHERE id = ?
-                            ''', (latest_log['log_content'], latest_log['id']))
-                            conn.commit()
-                            conn.close()
-                    except Exception as e:
-                        print(f"Error reading log file: {str(e)}")
-                        return jsonify({
-                            'status': 'error',
-                            'message': f"读取日志文件失败: {str(e)}"
-                        })
-            
-            # 计算进度
-            progress = 0
-            if latest_log['status'] == TaskScheduler.STATUS_RUNNING:
-                content = latest_log['log_content']
+            try:
+                with open(latest_log['path'], 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    
+                # 计算进度
+                progress = 0
                 if '找到' in content and '个源账号' in content:
                     progress = 10
                 if '正在爬取账号' in content:
-                    # 从日志内容中提取当前正在处理的账号序号
                     import re
                     match = re.search(r'\[(\d+)/(\d+)\]', content)
                     if match:
                         current, total = map(int, match.groups())
-                        progress = 10 + (current / total * 80)  # 给爬取过程分配80%的进度
-                if '成功爬取账号' in content:
-                    # 计算已完成账号数占总数的比例
-                    total_accounts = len(latest_log['affected_accounts'].split(',')) if latest_log['affected_accounts'] else 0
-                    completed_accounts = content.count('成功爬取账号')
-                    if total_accounts > 0:
-                        progress = min(90, 10 + (completed_accounts / total_accounts * 80))
+                        progress = 10 + (current / total * 80)
                 if '任务完成' in content:
                     progress = 100
                 elif '任务失败' in content:
                     progress = 100
-            elif latest_log['status'] in [TaskScheduler.STATUS_COMPLETED, TaskScheduler.STATUS_FAILED]:
-                progress = 100
 
-            return jsonify({
-                'status': 'success',
-                'log': latest_log,
-                'progress': progress
-            })
-            
+                return jsonify({
+                    'status': 'success',
+                    'log': {
+                        'filename': latest_log['filename'],
+                        'time': latest_log['time'],
+                        'log_content': content
+                    },
+                    'progress': progress
+                })
+            except Exception as e:
+                return jsonify({
+                    'status': 'error',
+                    'message': f"读取日志文件失败: {str(e)}"
+                })
+        
         return jsonify({
             'status': 'error',
             'message': '没有找到日志'
         })
     except Exception as e:
-        print(f"Error in get_latest_log: {str(e)}")  # 添加调试日志
         return jsonify({
             'status': 'error',
             'message': str(e)
@@ -473,11 +426,168 @@ def save_accounts():
         accounts = data.get('accounts', [])
         
         # 这里添加保存账号的逻辑
-        # 例如保存到文件或数据库
+        # 例如保存到文数据库
         
         return jsonify({'status': 'success'})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
+
+@app.route('/download_log/<filename>')
+def download_log(filename):
+    """下载日志文件"""
+    return send_from_directory('logs', filename, as_attachment=True)
+
+@app.route('/check_task_status')
+def check_task_status():
+    """检查是否有任务正在运行"""
+    try:
+        logs = get_recent_logs(1)
+        if not logs:
+            return jsonify({'running': False})
+            
+        latest_log = logs[0]
+        # 检查最新日志文件的修改时间是否在最近5分钟内
+        log_time = datetime.strptime(latest_log['time'], '%Y-%m-%d %H:%M:%S')
+        now = datetime.now()
+        
+        # 检查文件最后修改时间
+        last_modified = datetime.fromtimestamp(os.path.getmtime(latest_log['path']))
+        time_since_modified = now - last_modified
+        
+        with open(latest_log['path'], 'r', encoding='utf-8') as f:
+            content = f.read()
+            if '任务完成' in content or '任务失败' in content:
+                return jsonify({'running': False})
+            
+            # 如果日志最后修改时间超过5分钟，标记为可能停止响应
+            if time_since_modified > timedelta(minutes=5):
+                return jsonify({
+                    'running': True,
+                    'stalled': True,
+                    'last_modified': last_modified.strftime('%Y-%m-%d %H:%M:%S')
+                })
+                
+            return jsonify({
+                'running': True,
+                'stalled': False
+            })
+            
+    except Exception as e:
+        return jsonify({'running': False, 'error': str(e)})
+
+@app.route('/reset_task_status', methods=['POST'])
+def reset_task_status():
+    """强制重置任务状态"""
+    try:
+        logs = get_recent_logs(1)
+        if logs:
+            latest_log = logs[0]
+            # 在日志末尾添加强制终止标记
+            with open(latest_log['path'], 'a', encoding='utf-8') as f:
+                f.write('\n[强制重置] 任务状态已被手动重置\n任务完成\n')
+        
+        return jsonify({
+            'status': 'success',
+            'message': '任务状态已重置'
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        })
+
+@app.route('/get_task_progress')
+def get_task_progress():
+    """获取当前任务的进度"""
+    try:
+        logs = get_recent_logs(1)
+        if not logs:
+            return jsonify({
+                'status': 'error',
+                'message': '没有找到日志'
+            })
+            
+        latest_log = logs[0]
+        with open(latest_log['path'], 'r', encoding='utf-8') as f:
+            content = f.read()
+            
+        # 计算进度
+        progress = 0
+        status_text = '准备中...'
+        completed = False
+        
+        if '找到' in content and '个源账号' in content:
+            progress = 10
+            status_text = '已获取源账号列表'
+            
+        if '正在爬取账号' in content:
+            import re
+            match = re.search(r'\[(\d+)/(\d+)\]', content)
+            if match:
+                current, total = map(int, match.groups())
+                progress = 10 + (current / total * 80)
+                status_text = f'正在爬取 {current}/{total}'
+                
+        if '任务完成' in content:
+            progress = 100
+            status_text = '任务已完成'
+            completed = True
+        elif '任务失败' in content:
+            status_text = '任务失败'
+            completed = True
+            
+        return jsonify({
+            'status': 'success',
+            'progress': progress,
+            'log': content,
+            'status_text': status_text,
+            'completed': completed
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        })
+
+@app.route('/view_log/<filename>')
+def view_log(filename):
+    """查看日志文件内容"""
+    try:
+        log_path = os.path.join('logs', filename)
+        if not os.path.exists(log_path):
+            return jsonify({
+                'status': 'error',
+                'message': '日志文件不存在'
+            })
+            
+        with open(log_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+            
+        return jsonify({
+            'status': 'success',
+            'content': content
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        })
+
+@app.route('/get_recent_logs')
+def get_recent_logs_api():
+    """API接口：获取最近的日志文件列表"""
+    try:
+        logs = get_recent_logs(limit=5)
+        return jsonify({
+            'status': 'success',
+            'logs': logs
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        })
 
 if __name__ == '__main__':
     init_scheduler()  # 初始化定时任务

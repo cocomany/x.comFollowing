@@ -15,152 +15,540 @@
             <li><a href="{{ url_for('schedule_tasks') }}">定时任务管理</a></li>
         </ul>
     </nav>
-    <div class="container">
-        <div class="task-panel">
-            <h2>定时任务管理</h2>
-            
-            <div class="task-status">
-                <h3>任务状态</h3>
-                <p>当前状态: <span id="task-status">{{ '已启用' if task_enabled else '已禁用' }}</span></p>
-                <button id="toggle-task" onclick="toggleTask()">{{ '禁用任务' if task_enabled else '启用任务' }}</button>
-            </div>
-            
-            <div class="task-config">
-                <h3>任务配置</h3>
-                <div class="time-config">
-                    <label for="hour">执行时间：</label>
-                    <select id="hour">
-                        {% for h in range(24) %}
-                        <option value="{{ h }}" {{ 'selected' if schedule.hour == h }}>{{ '%02d' % h }}</option>
-                        {% endfor %}
-                    </select>
-                    :
-                    <select id="minute">
-                        {% for m in range(60) %}
-                        <option value="{{ m }}" {{ 'selected' if schedule.minute == m }}>{{ '%02d' % m }}</option>
-                        {% endfor %}
-                    </select>
-                    <button onclick="updateSchedule()">更新时间</button>
-                </div>
-                <p>下次执行时间: <span id="next-run">{{ schedule.next_run or '未设置' }}</span></p>
-                <div class="immediate-run">
-                    <button onclick="runNow()">立即执行一次</button>
-                </div>
-            </div>
-
-            <div class="recent-logs">
-                <h3>最近执行日志</h3>
-                <div id="current-task-status" style="display: none;">
-                    <h4>当前任务状态</h4>
-                    <div class="status-message" id="status-message"></div>
-                    <div class="progress-bar">
-                        <div id="progress" class="progress"></div>
-                    </div>
-                    <textarea id="crawler-log" readonly rows="10" placeholder="任务日志将在这里显示"></textarea>
+    <div class="page-container">
+        <div class="content-wrapper">
+            <div class="task-panel">
+                <h2>定时任务管理</h2>
+                
+                <div class="task-status">
+                    <h3>任务状态</h3>
+                    <p>当前状态: <span id="task-status">{{ '已启用' if task_enabled else '已禁用' }}</span></p>
+                    <button id="toggle-task" onclick="toggleTask()">{{ '禁用任务' if task_enabled else '启用任务' }}</button>
                 </div>
                 
-                {% if recent_logs %}
-                    {% for log in recent_logs %}
-                    <div class="log-entry">
-                        <p><strong>执行时间:</strong> {{ log.start_time }}</p>
-                        <p>
-                            <strong>状态:</strong> 
-                            <span class="status-badge status-{{ log.status }}">
-                                {% if log.status == 'running' %}运行中
-                                {% elif log.status == 'completed' %}已完成
-                                {% elif log.status == 'failed' %}失败
-                                {% else %}{{ log.status }}{% endif %}
-                            </span>
-                        </p>
-                        <p><strong>影响账号:</strong> {{ log.affected_accounts }}</p>
-                        <div class="log-content">
-                            <pre>{{ log.log_content }}</pre>
-                        </div>
+                <div class="task-config">
+                    <h3>任务配置</h3>
+                    <div class="time-config">
+                        <label for="hour">每天执行时间：</label>
+                        <select id="hour">
+                            {% for h in range(24) %}
+                            <option value="{{ h }}" {{ 'selected' if schedule.hour == h }}>{{ '%02d' % h }}</option>
+                            {% endfor %}
+                        </select>
+                        :
+                        <select id="minute">
+                            {% for m in range(60) %}
+                            <option value="{{ m }}" {{ 'selected' if schedule.minute == m }}>{{ '%02d' % m }}</option>
+                            {% endfor %}
+                        </select>
+                        <button onclick="updateSchedule()">更新时间</button>
                     </div>
-                    {% endfor %}
-                {% else %}
-                    <p>暂无执行日志</p>
-                {% endif %}
+                    <p>下次执行时间: <span id="next-run">{{ schedule.next_run or '未设置' }}</span></p>
+                    <div class="immediate-run">
+                        <button id="run-now-btn" onclick="runNow()">立即执行一次</button>
+                        <button id="reset-status-btn" onclick="resetTaskStatus()" class="warning-btn" style="display: none;">强制重置状态</button>
+                    </div>
+                </div>
+
+                <div class="logs-container">
+                    <div class="logs-list">
+                        <div class="logs-header">
+                            <h3>最近执行日志</h3>
+                            <button onclick="refreshLogsList()" class="refresh-btn">刷新列表</button>
+                        </div>
+                        {% if recent_logs %}
+                            {% for log in recent_logs %}
+                            <div class="log-entry" onclick="viewLog('{{ log.filename }}')">
+                                <p><strong>日志文件:</strong> {{ log.filename }}</p>
+                                <p><strong>创建时间:</strong> {{ log.time }}</p>
+                                <p><strong>文件大小:</strong> {{ '%.2f'|format(log.size/1024) }} KB</p>
+                                <div class="log-actions">
+                                    <button class="view-btn" onclick="event.stopPropagation(); viewLog('{{ log.filename }}')">查看</button>
+                                    <a href="{{ url_for('download_log', filename=log.filename) }}" class="download-link" onclick="event.stopPropagation();">下载</a>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <p>暂无执行日志</p>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="log-viewer-panel">
+                        <div class="log-viewer-header">
+                            <h3>日志内容 <span id="current-log-name"></span></h3>
+                            <label><input type="checkbox" id="auto-refresh" checked> 自动刷新</label>
+                            <button onclick="refreshLog()" class="refresh-btn">刷新</button>
+                        </div>
+                        <pre id="log-content" class="log-content">选择日志文件查看内容...</pre>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
+    <style>
+    .current-task-status {
+        margin: 20px 0;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+
+    .progress-bar {
+        width: 100%;
+        height: 20px;
+        background-color: #f0f0f0;
+        border-radius: 10px;
+        overflow: hidden;
+        position: relative;
+        margin: 10px 0;
+    }
+
+    .progress {
+        width: 0%;
+        height: 100%;
+        background-color: #4CAF50;
+        transition: width 0.3s ease;
+    }
+
+    #progress-text {
+        position: absolute;
+        width: 100%;
+        text-align: center;
+        line-height: 20px;
+        color: #000;
+    }
+
+    .log-viewer {
+        margin-top: 15px;
+    }
+
+    #current-log {
+        max-height: 300px;
+        overflow-y: auto;
+        background-color: #f8f8f8;
+        padding: 10px;
+        border-radius: 4px;
+        font-family: monospace;
+        white-space: pre-wrap;
+    }
+
+    button:disabled {
+        background-color: #cccccc;
+        cursor: not-allowed;
+        opacity: 0.7;
+    }
+
+    .warning-btn {
+        background-color: #ff4444;
+        color: white;
+        border: none;
+        padding: 10px 15px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .warning-btn:hover {
+        background-color: #cc0000;
+    }
+
+    .warning-btn:active {
+        background-color: #990000;
+    }
+
+    .logs-container {
+        display: flex;
+        gap: 20px;
+        margin-top: 20px;
+    }
+
+    .logs-list {
+        flex: 1;
+        max-width: 400px;
+    }
+
+    .log-viewer-panel {
+        flex: 2;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 15px;
+    }
+
+    .log-entry {
+        cursor: pointer;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        margin-bottom: 10px;
+        transition: background-color 0.2s;
+    }
+
+    .log-entry:hover {
+        background-color: #f5f5f5;
+    }
+
+    .log-entry.active {
+        border-color: #4CAF50;
+        background-color: #e8f5e9;
+    }
+
+    .log-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 5px;
+    }
+
+    .view-btn {
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .log-content {
+        height: 500px;
+        overflow-y: auto;
+        background-color: #f8f8f8;
+        padding: 10px;
+        border-radius: 4px;
+        font-family: monospace;
+        white-space: pre-wrap;
+    }
+
+    .log-viewer-header {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 10px;
+    }
+
+    .refresh-btn {
+        background-color: #2196F3;
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .log-entry.highlight {
+        border: 2px solid #4CAF50;
+        background-color: #e8f5e9;
+        animation: highlight 2s ease-in-out;
+    }
+
+    @keyframes highlight {
+        0% { background-color: #4CAF50; }
+        100% { background-color: #e8f5e9; }
+    }
+
+    .immediate-run {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .logs-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    .logs-header h3 {
+        margin: 0;
+    }
+
+    .logs-header .refresh-btn {
+        padding: 5px 10px;
+        font-size: 14px;
+    }
+    </style>
+
     <script>
-        function toggleTask() {
-            fetch('/toggle_schedule_task', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    document.getElementById('task-status').textContent = data.enabled ? '已启用' : '已禁用';
-                    document.getElementById('toggle-task').textContent = data.enabled ? '禁用任务' : '启用任务';
-                    document.getElementById('next-run').textContent = data.schedule.next_run || '未设置';
-                } else {
-                    alert('操作失败: ' + data.message);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('操作失败，请查看控制台获取详细信息');
-            });
-        }
+    let statusCheckInterval = null;
+    let currentLogFile = null;
+    let logRefreshInterval = null;
 
-        function updateSchedule() {
-            const hour = document.getElementById('hour').value;
-            const minute = document.getElementById('minute').value;
-            
-            fetch('/update_schedule', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ hour, minute })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    document.getElementById('next-run').textContent = data.schedule.next_run || '未设置';
-                    alert(data.message);
-                } else {
-                    alert('更新失败: ' + data.message);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('更新失败，请查看控制台获取详细信息');
-            });
-        }
-
-        function runNow() {
-            if (!confirm('确定要立即执行一次任务吗？')) {
-                return;
+    function toggleTask() {
+        fetch('/toggle_schedule_task', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                document.getElementById('task-status').textContent = data.enabled ? '已启用' : '已禁用';
+                document.getElementById('toggle-task').textContent = data.enabled ? '禁用任务' : '启用任务';
+                document.getElementById('next-run').textContent = data.schedule.next_run || '未设置';
+            } else {
+                alert('操作失败: ' + data.message);
             }
-            
-            fetch('/run_task_now', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            })
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('操作失败，请查看控制台获取详细信息');
+        });
+    }
+
+    function updateSchedule() {
+        const hour = document.getElementById('hour').value;
+        const minute = document.getElementById('minute').value;
+        
+        fetch('/update_schedule', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ hour, minute })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                console.log('调度信息:', data.schedule);
+                document.getElementById('next-run').textContent = data.schedule.next_run || '未设置';
+                alert(data.message);
+            } else {
+                alert('更新失败: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('更新失败，请查看控制台获取详细信息');
+        });
+    }
+
+    function setRunButtonState(disabled) {
+        const button = document.getElementById('run-now-btn');
+        button.disabled = disabled;
+        if (disabled) {
+            button.title = '任务正在运行中，请等待完成';
+        } else {
+            button.title = '';
+        }
+    }
+
+    function checkTaskStatus() {
+        fetch('/check_task_status')
+            .then(response => response.json())
+            .then(data => {
+                if (data.running) {
+                    setRunButtonState(true);
+                    document.getElementById('reset-status-btn').style.display = 'inline-block';
+                    updateTaskProgress();
+                } else {
+                    setRunButtonState(false);
+                    document.getElementById('reset-status-btn').style.display = 'none';
+                    clearInterval(statusCheckInterval);
+                }
+            });
+    }
+
+    function showTaskStatus() {
+        document.querySelector('.current-task-status').style.display = 'block';
+    }
+
+    function hideTaskStatus() {
+        document.querySelector('.current-task-status').style.display = 'none';
+    }
+
+    function updateTaskProgress() {
+        fetch('/get_task_progress')
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
-                    alert(data.message);
-                    // 5秒后刷新页面以查看新的日志
-                    setTimeout(() => location.reload(), 5000);
-                } else {
-                    alert('执行失败: ' + data.message);
+                    if (data.completed) {
+                        clearInterval(statusCheckInterval);
+                        setRunButtonState(false);
+                        
+                        // 立即获取并显示最新的日志列表
+                            fetch('/get_recent_logs')
+                                .then(response => response.json())
+                                .then(logData => {
+                                    if (logData.status === 'success' && logData.logs && logData.logs.length > 0) {
+                                        updateLogsList(logData.logs);
+                                        viewLog(logData.logs[0].filename);
+                                    }
+                                })
+                                .catch(error => console.error('Error:', error));
+                    }
+                }
+            });
+    }
+
+    // 修改 updateLogsList 函数，确保新的日志条被高亮显示
+    function updateLogsList(logs) {
+        const logsListContainer = document.querySelector('.logs-list');
+        let logsHtml = '<h3>最近执行日志</h3>';
+        
+        if (logs.length > 0) {
+            logs.forEach((log, index) => {
+                // 为最新的日志添加 highlight 类
+                const highlightClass = index === 0 ? 'highlight' : '';
+                logsHtml += `
+                    <div class="log-entry ${highlightClass}" onclick="viewLog('${log.filename}')">
+                        <p><strong>日志文件:</strong> ${log.filename}</p>
+                        <p><strong>创建时间:</strong> ${log.time}</p>
+                        <p><strong>文件大小:</strong> ${(log.size/1024).toFixed(2)} KB</p>
+                        <div class="log-actions">
+                            <button class="view-btn" onclick="event.stopPropagation(); viewLog('${log.filename}')">查看</button>
+                            <a href="/download_log/${log.filename}" class="download-link" onclick="event.stopPropagation();">下载</a>
+                        </div>
+                    </div>
+                `;
+            });
+        } else {
+            logsHtml += '<p>暂无执行日志</p>';
+        }
+        
+        logsListContainer.innerHTML = logsHtml;
+    }
+
+    function runNow() {
+        const button = document.getElementById('run-now-btn');
+        if (button.disabled) {
+            return;
+        }
+        
+        if (!confirm('确定要立即执行一次任务吗？')) {
+            return;
+        }
+        
+        // 立即禁用按钮并显示重置按钮
+        setRunButtonState(true);
+        document.getElementById('reset-status-btn').style.display = 'inline-block';
+        
+        fetch('/run_task_now', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert(data.message);
+                // 开始定期检查任务状态
+                statusCheckInterval = setInterval(updateTaskProgress, 2000);
+            } else {
+                setRunButtonState(false);
+                document.getElementById('reset-status-btn').style.display = 'none';
+                alert('执行失败: ' + data.message);
+            }
+        })
+        .catch(error => {
+            setRunButtonState(false);
+            document.getElementById('reset-status-btn').style.display = 'none';
+            console.error('Error:', error);
+       
+        });
+    }
+
+    function resetTaskStatus() {
+        if (!confirm('确定要强制重置任务状态吗？这不会停止正在运行的任务，只会重置页面显示状态。')) {
+            return;
+        }
+        
+        fetch('/reset_task_status', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                clearInterval(statusCheckInterval);
+                setRunButtonState(false);
+                document.getElementById('reset-status-btn').style.display = 'none';
+                location.reload();
+            } else {
+                alert('重置失败: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('重置失败，请查看控制台获取详细信息');
+        });
+    }
+
+    function viewLog(filename) {
+        currentLogFile = filename;
+        document.getElementById('current-log-name').textContent = `(${filename})`;
+        
+        // 移除原来的active类
+        document.querySelectorAll('.log-entry').forEach(entry => {
+            entry.classList.remove('active');
+        });
+        
+        // 加active类到当前选的日志
+        document.querySelector(`.log-entry:has(button[onclick*="${filename}"])`).classList.add('active');
+        
+        refreshLog();
+        
+        // 设置自动刷新
+        if (document.getElementById('auto-refresh').checked) {
+            if (logRefreshInterval) {
+                clearInterval(logRefreshInterval);
+            }
+            logRefreshInterval = setInterval(refreshLog, 2000);
+        }
+    }
+
+    function refreshLog() {
+        if (!currentLogFile) return;
+        
+        fetch(`/view_log/${currentLogFile}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const logContent = document.getElementById('log-content');
+                    logContent.textContent = data.content;
+                    logContent.scrollTop = logContent.scrollHeight;
                 }
             })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('执行失败，请查看控制台获取详细信息');
-            });
+            .catch(error => console.error('Error:', error));
+    }
+
+    // 监听自动刷新复选框
+    document.getElementById('auto-refresh').addEventListener('change', function(e) {
+        if (e.target.checked) {
+            if (currentLogFile) {
+                logRefreshInterval = setInterval(refreshLog, 2000);
+            }
+        } else {
+            if (logRefreshInterval) {
+                clearInterval(logRefreshInterval);
+            }
         }
+    });
+
+    // 页面加载时检查是否有正在运行的任务
+    document.addEventListener('DOMContentLoaded', function() {
+        checkTaskStatus();
+    });
+
+    function refreshLogsList() {
+        fetch('/get_recent_logs')
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success' && data.logs) {
+                    updateLogsList(data.logs);
+                    // 如果当前正在查看某个日志，保持其选中状态
+                    if (currentLogFile) {
+                        const activeEntry = document.querySelector(`.log-entry:has(button[onclick*="${currentLogFile}"])`);
+                        if (activeEntry) {
+                            activeEntry.classList.add('active');
+                        }
+                    }
+                }
+            })
+            .catch(error => console.error('Error:', error));
+    }
     </script>
 </body>
 </html>
