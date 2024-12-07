@@ -589,6 +589,30 @@ def get_recent_logs_api():
             'message': str(e)
         })
 
+@app.route('/delete_accounts', methods=['POST'])
+def delete_accounts():
+    """删除选中账号的所有数据"""
+    try:
+        data = request.json
+        accounts = data.get('accounts', [])
+        
+        if not accounts:
+            return jsonify({
+                'status': 'error',
+                'message': '请选择要删除的账号'
+            })
+        
+        # 调用query_db中的删除函数
+        result = query_db.delete_accounts(accounts)
+        return jsonify(result)
+    
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        })
+
 if __name__ == '__main__':
     init_scheduler()  # 初始化定时任务
     app.run(debug=True)
+

@@ -202,7 +202,7 @@
                     // 添加到列表中
                     accountList.appendChild(newAccountDiv);
 
-                    // 为新加的复选框添加事件监听
+                    // 为新���的复选框添加事件监听
                     const newCheckbox = newAccountDiv.querySelector('.account-checkbox');
                     newCheckbox.addEventListener('change', function() {
                         // 更新全选状态
@@ -257,6 +257,52 @@
                 } else if (selectedAccounts.length > 1) {
                     updateCommonFollowingList(selectedAccounts);
                 }
+            });
+        }
+
+        if (document.getElementById('delete-accounts-btn')) {
+            document.getElementById('delete-accounts-btn').addEventListener('click', function() {
+                const selectedAccounts = Array.from(document.querySelectorAll('.account-checkbox'))
+                    .filter(checkbox => checkbox.checked)
+                    .map(checkbox => checkbox.value);
+
+                if (selectedAccounts.length === 0) {
+                    alert('请至少选择一个要删除的账号');
+                    return;
+                }
+
+                if (!confirm(`确定要删除以下账号的所有数据吗？\n${selectedAccounts.join('\n')}\n此操作不可恢复！`)) {
+                    return;
+                }
+
+                fetch('/delete_accounts', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        accounts: selectedAccounts
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        alert('账号数据删除成功！');
+                        // 从DOM中移除被删除的账号
+                        selectedAccounts.forEach(account => {
+                            const accountItem = document.querySelector(`.account-item[data-account="${account}"]`);
+                            if (accountItem) {
+                                accountItem.remove();
+                            }
+                        });
+                    } else {
+                        alert('删除失败：' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('删除账号错误:', error);
+                    alert('删除过程发生错误，请查看控制台获取详细信息');
+                });
             });
         }
     }

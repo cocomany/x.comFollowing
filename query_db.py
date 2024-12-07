@@ -357,6 +357,40 @@ def get_new_following_list(account, days):
         if conn:
             conn.close()
 
+def delete_accounts(accounts):
+    """
+    从following表中删除指定source_account的所有数据
+    """
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 使用参数化查询来防止SQL注入
+        placeholders = ','.join(['?' for _ in accounts])
+        query = f"""
+            DELETE FROM following 
+            WHERE source_account IN ({placeholders})
+        """
+        
+        cursor.execute(query, accounts)
+        conn.commit()
+        
+        return {
+            'status': 'success',
+            'message': f'成功删除 {cursor.rowcount} 条记录'
+        }
+    
+    except sqlite3.Error as e:
+        print(f"删除账号数据失败: {str(e)}")
+        return {
+            'status': 'error',
+            'message': f'删除失败: {str(e)}'
+        }
+    
+    finally:
+        if conn:
+            conn.close()
+
 if __name__ == "__main__":
     source_accounts = get_source_accounts()
     print("Source Accounts:")

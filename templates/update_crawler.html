@@ -33,9 +33,11 @@
                 {% endfor %}
             </div>
             <div class="account-actions">
+                <button id="delete-accounts-btn" class="warning-btn">删除</button>
+                <small class="hint">谨慎使用，删除账号后，将无法恢复</small>
                 <input type="text" id="new-account-input" placeholder="输入新账号(多个账号用逗号分隔)">
                 <button id="add-account-btn">添加</button>
-                <small class="hint">可添加多个Twitter账号，用逗号分隔</small>
+                <small class="hint">添加新账号后，勾选它并触发爬虫，才会保留</small>
             </div>
             
             
