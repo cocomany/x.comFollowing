@@ -260,7 +260,7 @@ class TwitterFollowingCrawler:
         return following_accounts
     
     def save_to_db(self, following_accounts: List[tuple]):
-        """保存following数据到数据库"""
+        """保存following数据到数据库，已存在的记录直接忽略"""
         cursor = self.db_conn.cursor()
         current_time = datetime.now()
         base_timestamp = current_time.timestamp()
@@ -268,36 +268,22 @@ class TwitterFollowingCrawler:
         for (account_info, order) in following_accounts:
             try:
                 order_time = datetime.fromtimestamp(base_timestamp - order/1000)
-                
                 username = account_info['username'].replace('@', '')
                 display_name = account_info['display_name']
                 bio = account_info['bio']
                 
+                # 使用INSERT OR IGNORE，如果记录已存在则跳过
                 cursor.execute('''
-                SELECT id FROM following 
-                WHERE source_account = ? AND following_account = ?
-                ''', (self.source_account, username))
-                
-                if cursor.fetchone() is None:
-                    cursor.execute('''
-                    INSERT INTO following (
-                        source_account, 
-                        following_account,
-                        display_name,
-                        bio, 
-                        detected_time,
-                        detected_order
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    ''', (self.source_account, username, display_name, bio, current_time, order_time))
-                else:
-                    cursor.execute('''
-                    UPDATE following 
-                    SET display_name = ?,
-                        bio = ?,
-                        detected_time = ?
-                    WHERE source_account = ? AND following_account = ?
-                    ''', (display_name, bio, current_time, self.source_account, username))
+                INSERT OR IGNORE INTO following (
+                    source_account, 
+                    following_account,
+                    display_name,
+                    bio, 
+                    detected_time,
+                    detected_order
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                ''', (self.source_account, username, display_name, bio, current_time, order_time))
                     
             except sqlite3.Error as e:
                 logging.error(f"数据库操作失败: {self.source_account} -> {username}, 错误: {str(e)}")
@@ -375,7 +361,7 @@ class TwitterFollowingCrawler:
                         follower_count = parse_count(count_text)
                 
                 if following_count == 0 and follower_count == 0:
-                    logging.warning(f"未能找到用户 {username} ��统计信息")
+                    logging.warning(f"未能找到用户 {username} 的统计信息")
                     return None
                     
                 logging.info(f"成功获取用户 {username} 的统计信息: Following: {following_count}, Followers: {follower_count}")
@@ -502,7 +488,7 @@ class TwitterFollowingCrawler:
             logging.error(f"关闭爬虫实例时发生错误: {str(e)}")
     
     def run(self, progress_callback=None):
-        """运行爬虫程���"""
+        """运行爬虫程序"""
         try:
             # 添加清理历史文件的步骤
             if progress_callback:
@@ -539,7 +525,7 @@ class TwitterFollowingCrawler:
                     following_accounts = self.parse_following_list(self.driver.page_source)
                     all_following_accounts.extend(following_accounts)
                     
-                    # 记录���度日志
+                    # 记录进度日志
                     if progress_callback:
                         progress_callback(f"账号 {self.source_account} - 第 {scroll_count + 1} 次滚动，当前已获取 {len(all_following_accounts)} 个账号")
                     
