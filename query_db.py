@@ -320,24 +320,38 @@ def get_new_following_list(account, days):
         conn = get_db_connection()
         cursor = conn.cursor()
         
+        # 先执行一个查询来看看具体的时间值
+        debug_query = """
+        SELECT 
+            datetime('now', 'localtime') as current_time,
+            datetime('now', 'localtime', '-' || ? || ' days') as start_time
+        """
+        cursor.execute(debug_query, (days,))
+        time_debug = cursor.fetchone()
+        print(f"Debug - Current time: {time_debug[0]}, Start time: {time_debug[1]}")
+        
         query = """
         SELECT 
             following_account, 
             display_name, 
             bio, 
-            detected_time
+            detected_time,
+            datetime(detected_time, 'localtime') as local_detected_time
         FROM 
             following
         WHERE 
             source_account = ?
             AND datetime(detected_time, 'localtime') >= datetime('now', 'localtime', '-' || ? || ' days')
-            AND datetime(detected_time, 'localtime') <= datetime('now', 'localtime')
         ORDER BY 
             detected_time DESC
         """
         
         cursor.execute(query, (account, days))
         followings = cursor.fetchall()
+        
+        # 打印出第一条记录的时间信息
+        if followings:
+            print(f"Debug - First record: detected_time={followings[0][3]}, local_time={followings[0][4]}")
         
         result = [
             {

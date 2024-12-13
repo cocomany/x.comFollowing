@@ -202,7 +202,7 @@
                     // 添加到列表中
                     accountList.appendChild(newAccountDiv);
 
-                    // 为新���的复选框添加事件监听
+                    // 为新的复选框添加事件监听
                     const newCheckbox = newAccountDiv.querySelector('.account-checkbox');
                     newCheckbox.addEventListener('change', function() {
                         // 更新全选状态

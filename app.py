@@ -393,7 +393,7 @@ def init_scheduler():
 def get_new_following_list():
     data = request.json
     accounts = data.get('accounts', [])
-    days = data.get('days')
+    days = data.get('days')  # 正确接收了天数参数
     
     result = {}
     for account in accounts:
