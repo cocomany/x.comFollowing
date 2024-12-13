@@ -330,7 +330,8 @@ def get_new_following_list(account, days):
             following
         WHERE 
             source_account = ?
-            AND date(detected_time, 'localtime') >= date('now', 'localtime', '-' || ? || ' days')
+            AND datetime(detected_time) >= datetime('now', '-' || ? || ' days')
+            AND datetime(detected_time) <= datetime('now')
         ORDER BY 
             detected_time DESC
         """
